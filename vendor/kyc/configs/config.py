@@ -14,6 +14,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Root of this vendored engine (the directory holding models/, logs/, temp/).
+KYC_ROOT = Path(__file__).resolve().parent.parent
+
 
 def load_yaml_config() -> Dict[str, Any]:
     """Load defaults.yaml configuration."""
@@ -98,6 +101,13 @@ class Config:
     def _merge_configs(self) -> Dict[str, Any]:
         """Merge YAML defaults with environment variables."""
         merged = self._defaults.copy()
+
+        # defaults.yaml declares paths relative ("models/"), which would otherwise
+        # resolve against the process working directory. Anchor them to this
+        # package so callers can run from anywhere.
+        for key, value in merged.get("paths", {}).items():
+            if not Path(value).is_absolute():
+                merged["paths"][key] = str(KYC_ROOT / value)
         
         # Override with environment variables
         if self.env.LOG_LEVEL:

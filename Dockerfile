@@ -33,9 +33,12 @@ ENV PYTHONPATH=/app:/app/vendor/kyc
 ENV PYTHONUNBUFFERED=1
 ENV PORT=8000
 
-RUN mkdir -p /app/vendor/kyc/models /app/vendor/kyc/logs /app/vendor/kyc/temp \
-    && wget -O /app/vendor/kyc/models/yunet.onnx \
-       https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx
+# Bake every weight into the image: YuNet into paths.models_dir, and the
+# InsightFace and PaddleOCR packs into their $HOME caches by constructing each
+# model once. Startup then needs no network, and a model that cannot load fails
+# the build rather than leaving the pod unready.
+RUN mkdir -p /app/vendor/kyc/logs /app/vendor/kyc/temp \
+    && python scripts/download_models.py --all
 
 EXPOSE 8000
 

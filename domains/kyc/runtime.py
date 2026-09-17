@@ -3,10 +3,16 @@
 from __future__ import annotations
 
 import asyncio
+import logging
+import time
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 
 from core.settings import get_settings
+
+logger = logging.getLogger(__name__)
+
+MODEL_NAMES = ("face_detector", "face_matcher", "ocr_extractor", "liveness_detector")
 
 
 @dataclass
@@ -16,24 +22,22 @@ class KycRuntime:
     ocr_extractor: Any = None
     liveness_detector: Any = None
     ml_import_error: Optional[str] = None
+    model_errors: Dict[str, str] = field(default_factory=dict)
     processing_semaphore: asyncio.Semaphore = field(
         default_factory=lambda: asyncio.Semaphore(get_settings().max_concurrent_requests)
     )
 
     def models_ready(self) -> bool:
-        return all(
-            [
-                self.face_detector is not None,
-                self.face_matcher is not None,
-                self.ocr_extractor is not None,
-                self.liveness_detector is not None,
-            ]
-        )
+        return all(getattr(self, name) is not None for name in MODEL_NAMES)
 
     async def load(self) -> None:
         if get_settings().AI_API_SKIP_ML:
             self.ml_import_error = "AI_API_SKIP_ML=1"
+            self.model_errors = {name: "AI_API_SKIP_ML=1" for name in MODEL_NAMES}
+            logger.warning("AI_API_SKIP_ML=1: KYC models not loaded, /ready stays not_ready")
             return
+
+        stage = "import"
         try:
             import onnxruntime as ort  # noqa: F401
 
@@ -42,17 +46,33 @@ class KycRuntime:
             from app.services.ocr_extractor import get_ocr_extractor
             from app.services.liveness_detector import get_liveness_detector
 
-            self.face_detector = await asyncio.to_thread(get_face_detector)
-            self.face_matcher = await asyncio.to_thread(get_face_matcher)
-            self.ocr_extractor = await asyncio.to_thread(get_ocr_extractor)
-            self.liveness_detector = await asyncio.to_thread(get_liveness_detector)
+            loaders = (
+                ("face_detector", get_face_detector),
+                ("face_matcher", get_face_matcher),
+                ("ocr_extractor", get_ocr_extractor),
+                ("liveness_detector", get_liveness_detector),
+            )
+            for stage, factory in loaders:
+                logger.info("Loading %s", stage)
+                started = time.monotonic()
+                setattr(self, stage, await asyncio.to_thread(factory))
+                logger.info("Loaded %s in %.1fs", stage, time.monotonic() - started)
+
             self.ml_import_error = None
+            self.model_errors = {}
+            logger.info("KYC models ready")
         except Exception as exc:
-            self.ml_import_error = str(exc)
-            self.face_detector = None
-            self.face_matcher = None
-            self.ocr_extractor = None
-            self.liveness_detector = None
+            detail = "{}: {}".format(type(exc).__name__, exc)
+            self.ml_import_error = "{}: {}".format(stage, detail)
+            logger.exception("KYC model load failed at stage %r", stage)
+            # Loading is sequential and all-or-nothing, so only `stage` actually
+            # failed; the rest were never attempted.
+            self.model_errors = {
+                name: detail if name == stage else "not loaded ({} failed)".format(stage)
+                for name in MODEL_NAMES
+            }
+            for name in MODEL_NAMES:
+                setattr(self, name, None)
 
 
 runtime = KycRuntime()

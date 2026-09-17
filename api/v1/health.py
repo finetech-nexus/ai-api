@@ -8,6 +8,13 @@ from domains.kyc.schemas import HealthCheckResponse, ModelStatus
 
 router = APIRouter(tags=["Health"])
 
+MODEL_LABELS = {
+    "face_detector": "yunet",
+    "face_matcher": "insightface",
+    "ocr_extractor": "paddleocr",
+    "liveness_detector": "mediapipe+haar",
+}
+
 
 @router.get("/health", summary="Liveness probe")
 async def liveness():
@@ -34,28 +41,14 @@ async def readiness(response: Response):
 )
 async def model_health():
     settings = get_settings()
-    models = {
-        "face_detector": ModelStatus(
-            loaded=runtime.face_detector is not None,
-            name="yunet",
-            error=runtime.ml_import_error if runtime.face_detector is None else None,
-        ),
-        "face_matcher": ModelStatus(
-            loaded=runtime.face_matcher is not None,
-            name="insightface",
-            error=runtime.ml_import_error if runtime.face_matcher is None else None,
-        ),
-        "ocr_extractor": ModelStatus(
-            loaded=runtime.ocr_extractor is not None,
-            name="paddleocr",
-            error=runtime.ml_import_error if runtime.ocr_extractor is None else None,
-        ),
-        "liveness_detector": ModelStatus(
-            loaded=runtime.liveness_detector is not None,
-            name="mediapipe+haar",
-            error=runtime.ml_import_error if runtime.liveness_detector is None else None,
-        ),
-    }
+    models = {}
+    for attr, name in MODEL_LABELS.items():
+        loaded = getattr(runtime, attr) is not None
+        models[attr] = ModelStatus(
+            loaded=loaded,
+            name=name,
+            error=None if loaded else runtime.model_errors.get(attr, runtime.ml_import_error),
+        )
     all_loaded = all(model.loaded for model in models.values())
     return HealthCheckResponse(
         status="healthy" if all_loaded else "degraded",

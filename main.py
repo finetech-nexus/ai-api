@@ -10,6 +10,7 @@ from api.v1.health import router as health_router
 from api.v1.kyc.legacy import legacy_router
 from api.v1.router import api_router
 from core.errors import ErrorResponse
+from core.logging import configure_logging
 from core.settings import get_settings
 from domains.kyc.runtime import runtime
 
@@ -33,6 +34,7 @@ async def lifespan(_app: FastAPI):
 
 
 def create_app() -> FastAPI:
+    configure_logging()
     settings = get_settings()
     application = FastAPI(
         title=settings.app_name,

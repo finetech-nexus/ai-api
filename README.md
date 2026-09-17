@@ -32,6 +32,7 @@ Legacy aliases (same contract as `kyc/api`, used by `kyc-api` via `ML_BACKEND_UR
 python3.9 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+python scripts/download_models.py   # fetches yunet.onnx into vendor/kyc/models
 export PYTHONPATH="$(pwd):$(pwd)/vendor/kyc"
 uvicorn main:app --reload --port 8000
 ```
@@ -52,6 +53,8 @@ python scripts/export_openapi.py
 ```bash
 docker compose up --build
 ```
+
+The build runs `scripts/download_models.py --all`, which fetches YuNet and constructs the InsightFace and PaddleOCR models once so their weight packs are cached in the image. Startup therefore needs no network, and a model that cannot load fails the build instead of leaving the pod permanently unready. The trade-off is a slower, larger build.
 
 Image: `nexusbank/ai-api`. GitHub Actions build and push `latest` + git SHA on `main`, and version tags on `v*` releases.
 
