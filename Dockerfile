@@ -45,11 +45,19 @@ ENV PYTHONPATH=/app:/app/vendor/kyc
 ENV PYTHONUNBUFFERED=1
 ENV PORT=8000
 
-# Provision the InsightFace pack from this repo's public weights release, then
-# construct every model once: startup needs no network afterwards, and a model
-# that cannot load fails the build instead of leaving the pod unready.
+# Fetch InsightFace on every platform. Construct the models only when the
+# build is native: PaddleOCR SIGSEGVs under QEMU (the previous
+# linux/amd64,linux/arm64-on-x86 path died with "qemu: uncaught target
+# signal 11" while loading PP-LCNet).
+ARG TARGETARCH
+ARG BUILDARCH
 RUN mkdir -p /app/vendor/kyc/logs /app/vendor/kyc/temp \
-    && python scripts/download_models.py --all
+    && python scripts/download_models.py \
+    && if [ "$TARGETARCH" = "$BUILDARCH" ]; then \
+         python scripts/download_models.py --all; \
+       else \
+         echo "Skipping --all: emulated ${TARGETARCH} on ${BUILDARCH}"; \
+       fi
 
 EXPOSE 8000
 
