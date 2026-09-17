@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1
 # Use Python 3.9 — InsightFace / MediaPipe / PaddleOCR compatible
 FROM python:3.9-slim
 
@@ -34,14 +33,11 @@ ENV PYTHONPATH=/app:/app/vendor/kyc
 ENV PYTHONUNBUFFERED=1
 ENV PORT=8000
 
-# Provision the InsightFace pack from this repo's weights release, then construct
-# every model once: startup needs no network afterwards, and a model that cannot
-# load fails the build instead of leaving the pod unready. The secret is only
-# needed while the repo is private; without it the public asset URL is used.
-RUN --mount=type=secret,id=github_token \
-    mkdir -p /app/vendor/kyc/logs /app/vendor/kyc/temp \
-    && GITHUB_TOKEN="$(cat /run/secrets/github_token 2>/dev/null || true)" \
-       python scripts/download_models.py --all
+# Provision the InsightFace pack from this repo's public weights release, then
+# construct every model once: startup needs no network afterwards, and a model
+# that cannot load fails the build instead of leaving the pod unready.
+RUN mkdir -p /app/vendor/kyc/logs /app/vendor/kyc/temp \
+    && python scripts/download_models.py --all
 
 EXPOSE 8000
 

@@ -15,7 +15,7 @@ env:
 jobs:
   build-push:
     runs-on: ubuntu-latest
-    # contents: read lets the build fetch the InsightFace weights release asset.
+    # Least privilege: the build only reads the repo.
     permissions:
       contents: read
     steps:
@@ -48,5 +48,3 @@ jobs:
           tags: |
             ${{ env.DOCKER_ORGANIZATION }}/${{ env.IMAGE_NAME }}:latest
             ${{ env.DOCKER_ORGANIZATION }}/${{ env.IMAGE_NAME }}:${{ steps.sha.outputs.short_sha }}
-          secrets: |
-            github_token=${{ secrets.GITHUB_TOKEN }}

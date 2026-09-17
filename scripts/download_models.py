@@ -11,14 +11,13 @@ asset on this repo and fetched here, verified against a pinned SHA-256.
 Use --all in the image build: it caches PaddleOCR's weights and proves the models
 load, so a broken image fails the build instead of leaving the pod unready.
 
-Set GITHUB_TOKEN when the repo is private. Override the source with
-AI_API_WEIGHTS_REPO and AI_API_WEIGHTS_TAG.
+The release is public, so no credentials are involved. Override the source with
+AI_API_WEIGHTS_REPO, AI_API_WEIGHTS_TAG, or AI_API_WEIGHTS_BASE_URL.
 """
 
 import argparse
 import hashlib
 import importlib
-import json
 import os
 import sys
 import time
@@ -65,52 +64,38 @@ def _urlopen(url, headers):
     try:
         return urllib.request.urlopen(request)
     except urllib.error.HTTPError as exc:
-        hint = (
-            "set GITHUB_TOKEN if the repo is private"
-            if exc.code in (401, 403, 404) and "Authorization" not in headers
-            else "check the token's scopes"
-        )
         raise SystemExit(
             "HTTP {} ({}) fetching {}\n"
             "  If the weights release does not exist yet, publish it with:\n"
             "    gh release create {} --repo {} \\\n"
             "      --title 'InsightFace {} (trimmed)' \\\n"
             "      vendor/kyc/insightface/models/{}/*.onnx\n"
-            "  Otherwise: {}".format(
+            "  A private repo cannot serve this URL: mirror the pack and set "
+            "AI_API_WEIGHTS_BASE_URL.".format(
                 exc.code, exc.reason, url,
                 WEIGHTS_TAG, WEIGHTS_REPO,
                 INSIGHTFACE_PACK, INSIGHTFACE_PACK,
-                hint,
             )
         )
 
 
-def _release_assets(token):
-    """Map asset name -> (url, headers).
+def _asset_url(name: str) -> str:
+    """Public release asset URL.
 
-    A public repo serves release assets from a predictable URL. A private one
-    requires resolving the asset through the API and asking for octet-stream.
+    The repo is public, so no authentication is involved. Point
+    AI_API_WEIGHTS_BASE_URL elsewhere to serve the pack from an internal mirror.
     """
-    if not token:
-        base = "https://github.com/{}/releases/download/{}".format(WEIGHTS_REPO, WEIGHTS_TAG)
-        return {name: ("{}/{}".format(base, name), {}) for name in INSIGHTFACE_FILES}
-
-    api = "https://api.github.com/repos/{}/releases/tags/{}".format(WEIGHTS_REPO, WEIGHTS_TAG)
-    release = json.load(_urlopen(api, {
-        "Authorization": "Bearer {}".format(token),
-        "Accept": "application/vnd.github+json",
-    }))
-    headers = {
-        "Authorization": "Bearer {}".format(token),
-        "Accept": "application/octet-stream",
-    }
-    return {asset["name"]: (asset["url"], headers) for asset in release.get("assets", [])}
+    base = os.environ.get(
+        "AI_API_WEIGHTS_BASE_URL",
+        "https://github.com/{}/releases/download/{}".format(WEIGHTS_REPO, WEIGHTS_TAG),
+    )
+    return "{}/{}".format(base.rstrip("/"), name)
 
 
-def _download(url, headers, target: Path, expected: str) -> None:
+def _download(url, target: Path, expected: str) -> None:
     print("Downloading {} -> {}".format(url, target), flush=True)
     tmp = target.with_suffix(target.suffix + ".part")
-    with _urlopen(url, headers) as response, open(tmp, "wb") as handle:
+    with _urlopen(url, {}) as response, open(tmp, "wb") as handle:
         while True:
             block = response.read(1024 * 1024)
             if not block:
@@ -162,20 +147,8 @@ def fetch_insightface() -> None:
     if not missing:
         return
 
-    token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
-    assets = _release_assets(token)
     for name, expected in missing.items():
-        if name not in assets:
-            raise SystemExit(
-                "{} is not an asset of {} release {}{}".format(
-                    name,
-                    WEIGHTS_REPO,
-                    WEIGHTS_TAG,
-                    "" if token else " (set GITHUB_TOKEN if the repo is private)",
-                )
-            )
-        url, headers = assets[name]
-        _download(url, headers, dest / name, expected)
+        _download(_asset_url(name), dest / name, expected)
 
 
 LOADERS = (

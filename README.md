@@ -81,7 +81,7 @@ gh release create weights-v1 --repo finetech-nexus/ai-api \
   vendor/kyc/insightface/models/buffalo_l/w600k_r50.onnx
 ```
 
-`scripts/download_models.py` fetches whatever is missing and verifies it against the SHA-256 digests pinned in the script, which are the upstream ones — so a swapped or truncated asset fails the build. Files already present and matching are left alone, which is why a local checkout with the weights never re-downloads. Pass `GITHUB_TOKEN` while the repo is private; the image build receives it as a BuildKit secret from the workflows.
+`scripts/download_models.py` fetches whatever is missing and verifies it against the SHA-256 digests pinned in the script, which are the upstream ones — so a swapped or truncated asset fails the build. Files already present and matching are left alone, which is why a local checkout with the weights never re-downloads. The release is public, so no credentials are involved; if the repo ever goes private, mirror the pack and point `AI_API_WEIGHTS_BASE_URL` at it.
 
 Release assets allow 2 GB per file and do not consume Git LFS storage or bandwidth. Publishing a `weights-*` release does not trigger an image build — `release-image.yml` skips those tags.
 

@@ -19,7 +19,7 @@ jobs:
     # Skip weights-* releases: those publish ML assets, not a new app version.
     if: ${{ !startsWith(github.event.release.tag_name, 'weights-') }}
     runs-on: ubuntu-latest
-    # contents: read lets the build fetch the InsightFace weights release asset.
+    # Least privilege: the build only reads the repo.
     permissions:
       contents: read
     steps:
@@ -57,5 +57,3 @@ jobs:
           tags: |
             ${{ env.DOCKER_ORGANIZATION }}/${{ env.IMAGE_NAME }}:latest
             ${{ env.DOCKER_ORGANIZATION }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.tag }}
-          secrets: |
-            github_token=${{ secrets.GITHUB_TOKEN }}
