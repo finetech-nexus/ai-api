@@ -27,14 +27,17 @@ import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-sys.path[:0] = [str(ROOT), str(ROOT / "vendor" / "kyc")]
-
-from configs.config import config  # noqa: E402
+KYC_ROOT = ROOT / "vendor" / "kyc"
+sys.path[:0] = [str(ROOT), str(KYC_ROOT)]
 
 WEIGHTS_REPO = os.environ.get("AI_API_WEIGHTS_REPO", "finetech-nexus/ai-api")
 WEIGHTS_TAG = os.environ.get("AI_API_WEIGHTS_TAG", "weights-v1")
 
 INSIGHTFACE_PACK = "buffalo_l"
+YUNET_URL = (
+    "https://github.com/opencv/opencv_zoo/raw/main/models/"
+    "face_detection_yunet/face_detection_yunet_2023mar.onnx"
+)
 
 # Trimmed buffalo_l: the recognition model plus the detection model FaceAnalysis
 # asserts on. Digests are from the upstream v0.7 pack, so they hold wherever the
@@ -54,9 +57,13 @@ def sha256(path: Path) -> str:
 
 
 def insightface_dir() -> Path:
-    """Where FaceAnalysis(root=...) looks: <root>/models/<pack>."""
-    root = Path(config.get("paths", "insightface_root", default="~/.insightface"))
-    return root.expanduser() / "models" / INSIGHTFACE_PACK
+    """Where FaceAnalysis(root=...) looks: <root>/models/<pack>.
+
+    Matches paths.insightface_root in vendor/kyc/configs/defaults.yaml, resolved
+    against vendor/kyc rather than $HOME. Kept here so this script does not have
+    to import configs.config (yaml, pydantic) just to fetch files.
+    """
+    return KYC_ROOT / "insightface" / "models" / INSIGHTFACE_PACK
 
 
 def _urlopen(url, headers):
@@ -116,20 +123,17 @@ def _download(url, target: Path, expected: str) -> None:
 
 def fetch_yunet() -> None:
     """Committed under vendor/kyc/models; fetch only if somehow absent."""
-    models_dir = Path(config.get("paths", "models_dir", default="models"))
+    models_dir = KYC_ROOT / "models"
     models_dir.mkdir(parents=True, exist_ok=True)
-    target = models_dir / config.get(
-        "models", "face_detection", "local_file", default="yunet.onnx"
-    )
+    target = models_dir / "yunet.onnx"
 
     if target.exists():
         print("{} ({:.1f} MB)".format(target, target.stat().st_size / 1024 / 1024))
         return
 
-    url = config.get("models", "face_detection", "url")
-    print("{} missing, downloading {}".format(target, url))
+    print("{} missing, downloading {}".format(target, YUNET_URL))
     tmp = target.with_suffix(target.suffix + ".part")
-    urllib.request.urlretrieve(url, tmp)
+    urllib.request.urlretrieve(YUNET_URL, tmp)
     tmp.replace(target)
 
 

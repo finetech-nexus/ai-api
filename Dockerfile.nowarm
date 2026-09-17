@@ -19,8 +19,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY requirements.txt .
 RUN pip install --upgrade pip setuptools wheel \
-    && pip install --no-cache-dir --timeout=300 -r requirements.txt \
-    && python -c "import yaml, cv2, insightface, onnxruntime, paddleocr, mediapipe"
+    && pip install --no-cache-dir --timeout=300 -r requirements.txt
 
 # onnxruntime ships .so files with an executable stack, which hardened kernels
 # refuse to map. Best-effort, and kept in its own layer: an ignored failure here
@@ -39,11 +38,6 @@ ENV PYTHONPATH=/app:/app/vendor/kyc
 ENV PYTHONUNBUFFERED=1
 ENV PORT=8000
 
-# Provision the InsightFace pack from this repo's public weights release, then
-# construct every model once: startup needs no network afterwards, and a model
-# that cannot load fails the build instead of leaving the pod unready.
-RUN mkdir -p /app/vendor/kyc/logs /app/vendor/kyc/temp \
-    && python scripts/download_models.py --all
 
 EXPOSE 8000
 

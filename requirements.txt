@@ -1,6 +1,5 @@
 # Nexus Bank AI API
 # Python 3.9 — InsightFace / MediaPipe / PaddleOCR compatible
---extra-index-url https://download.pytorch.org/whl/cpu
 
 # --- API ---
 fastapi==0.104.1
@@ -8,7 +7,9 @@ uvicorn[standard]==0.24.0
 python-multipart==0.0.6
 pydantic==2.5.0
 pydantic-settings==2.1.0
-PyYAML==6.0.1
+# Exactly 6.0.2: paddlex (pulled in by paddleocr 3.4.x) pins PyYAML==6.0.2, so
+# any other value makes the whole install unresolvable.
+PyYAML==6.0.2
 python-dotenv==1.0.0
 aiofiles==23.2.1
 
@@ -16,8 +17,9 @@ aiofiles==23.2.1
 Pillow==10.1.0
 numpy==1.26.2
 opencv-python-headless==4.8.1.78
-torch==2.2.0+cpu
-torchvision==0.17.0+cpu
+# No torch: nothing here imports it. Inference runs on onnxruntime (YuNet,
+# InsightFace) and paddle (OCR). It also has no torch==*+cpu wheel for aarch64,
+# so keeping it would break the arm64 image.
 
 # --- KYC models ---
 insightface==0.7.3
