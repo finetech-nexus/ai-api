@@ -1,0 +1,122 @@
+# defaults.yaml
+# Default configuration for KYC verification service
+# Optimized for European/US ID cards
+
+project:
+  name: "kyc-verification-service"
+  version: "1.0.0"
+  description: "KYC verification with face matching and OCR"
+  log_level: "INFO"
+
+server:
+  host: "0.0.0.0"
+  port: 8000
+  workers: 4
+  reload: false  # Set true for development
+
+paths:
+  models_dir: "models/"
+  logs_dir: "logs/"
+  temp_dir: "temp/"
+
+models:
+  # YuNet Face Detection
+  face_detection:
+    name: "yunet"
+    type: "onnx"
+    url: "https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx"
+    local_file: "yunet.onnx"
+    conf_threshold: 0.5
+    nms_threshold: 0.3
+  
+  # InsightFace Recognition
+  face_recognition:
+    name: "insightface"
+    model_name: "buffalo_l"  # buffalo_l (accurate) or buffalo_s (faster)
+    similarity_threshold: 0.10  # 0.10=very lenient (current), 0.15=lenient, 0.2=moderate, 0.3=strict
+  
+  # PaddleOCR Text Extraction (UPDATED)
+  ocr:
+    name: "paddleocr"
+    languages: ["en", "de", "es", "pt", "fr"]  # English, German, Spanish, Portuguese, French
+    confidence_threshold: 0.3
+    gpu: false  # Set true if GPU available
+    # PaddleOCR-specific settings
+    detection_threshold: 0.2  # Lower = more sensitive (better for watermarks)
+    recognition_batch_size: 6
+    use_angle_classification: true  # Auto-rotate text
+    use_space_char: true  # Preserve spaces in text
+
+# File upload settings
+upload:
+  max_size_mb: 10
+  allowed_extensions: ["jpg", "jpeg", "png", "pdf"]
+  image_max_dimension: 4096  # Max width/height in pixels
+
+# API settings
+api:
+  prefix: "/api/v1"
+  cors_enabled: true
+  cors_origins:
+    - "http://localhost:3000"
+    - "http://localhost:5173"
+  rate_limit_enabled: false  # Enable in production
+  rate_limit_per_minute: 60
+
+# Storage settings
+storage:
+  type: "local"  # local or s3
+  local_temp_dir: "temp/"
+  s3_bucket: null  # Set via env variable
+  cleanup_temp_files: true
+  temp_file_ttl_hours: 24
+
+# Monitoring (optional)
+monitoring:
+  enabled: false
+  prometheus_port: 9090
+  health_check_path: "/health"
+
+# Processing settings
+processing:
+  async_enabled: true  # Use background tasks for heavy operations
+  max_concurrent_requests: 10
+  timeout_seconds: 30
+
+# Liveness Detection Settings
+liveness:
+  # Blink Detection (MediaPipe)
+  blink:
+    ear_threshold: 0.25  # Eye Aspect Ratio threshold (lower = more sensitive, 0.25 is good balance)
+    consecutive_frames: 1  # Frames below threshold to count as blink (1 = immediate detection)
+    min_detection_confidence: 0.5  # Minimum confidence for face detection
+    min_blink_count: 1  # Minimum blinks required for blink challenge
+  
+  # Profile/Orientation Detection (Haar Cascades)
+  profile:
+    scale_factor: 1.3  # Scale factor for cascade detection
+    min_neighbors: 4  # Minimum neighbors for detection
+    min_size: 30  # Minimum face size in pixels
+  
+  # Challenge System
+  challenge:
+    expires_in: 120  # Challenge expiration time in seconds (increased for user convenience)
+    max_retries: 3  # Maximum retries per challenge
+    required_challenges: 2  # Number of challenges required to pass
+  
+  # Security
+  security:
+    hmac_secret: "change-me-in-production"  # Secret key for HMAC challenge signing (set via env)
+    nonce_length: 32  # Nonce length in bytes
+    timestamp_tolerance: 5  # Timestamp tolerance in seconds
+  
+  # Model Files (Haar Cascades)
+  models:
+    haar_frontal: "haarcascade_frontalface_alt.xml"
+    haar_profile: "haarcascade_profileface.xml"
+  
+  # Detection Settings
+  detection:
+    min_frames: 10  # Minimum frames required for batch detection
+    face_detection_ratio_threshold: 0.5  # Minimum ratio of frames with face detected
+    min_blinks_required: 1  # Minimum blinks required for blink challenge

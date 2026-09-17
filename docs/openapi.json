@@ -1,0 +1,1589 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Nexus Bank AI API",
+    "description": "Platform API for Nexus Bank AI services. KYC (face, OCR, liveness) is live. AML screening will be added as a separate domain.",
+    "contact": {
+      "name": "Nexus Bank"
+    },
+    "license": {
+      "name": "Proprietary"
+    },
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Liveness probe",
+        "description": "Process is up. Used by Kubernetes liveness probes.",
+        "operationId": "liveness_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ready": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Readiness probe",
+        "description": "Models are loaded. Used by Kubernetes readiness probes.",
+        "operationId": "readiness_ready_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/health": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "KYC model health",
+        "operationId": "model_health_api_v1_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthCheckResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/kyc/verify": {
+      "post": {
+        "tags": [
+          "KYC"
+        ],
+        "summary": "Verify identity",
+        "description": "Face detection + face match + OCR on an ID document and a selfie.",
+        "operationId": "verify_kyc_api_v1_kyc_verify_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_verify_kyc_api_v1_kyc_verify_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KYCVerificationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/kyc/ocr": {
+      "post": {
+        "tags": [
+          "KYC"
+        ],
+        "summary": "Extract document fields",
+        "operationId": "extract_ocr_api_v1_kyc_ocr_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_extract_ocr_api_v1_kyc_ocr_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OCROnlyResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/kyc/liveness/challenge": {
+      "get": {
+        "tags": [
+          "KYC"
+        ],
+        "summary": "Create a liveness challenge",
+        "operationId": "generate_challenge_api_v1_kyc_liveness_challenge_get",
+        "parameters": [
+          {
+            "name": "types",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated challenge types, e.g. turn_left,turn_right",
+              "title": "Types"
+            },
+            "description": "Comma-separated challenge types, e.g. turn_left,turn_right"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChallengeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/kyc/liveness/verify": {
+      "post": {
+        "tags": [
+          "KYC"
+        ],
+        "summary": "Verify a liveness challenge",
+        "operationId": "verify_liveness_api_v1_kyc_liveness_verify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LivenessVerificationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LivenessVerificationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/kyc/liveness/detect": {
+      "post": {
+        "tags": [
+          "KYC"
+        ],
+        "summary": "Batch liveness detection",
+        "operationId": "detect_liveness_api_v1_kyc_liveness_detect_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LivenessBatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LivenessBatchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/aml/health": {
+      "get": {
+        "tags": [
+          "AML"
+        ],
+        "summary": "AML domain status",
+        "operationId": "aml_health_api_v1_aml_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AmlHealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/aml/screen": {
+      "post": {
+        "tags": [
+          "AML"
+        ],
+        "summary": "Screen a party against watchlists",
+        "description": "Placeholder. Will run sanctions, PEP, and adverse-media screening.",
+        "operationId": "screen_party_api_v1_aml_screen_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AmlScreenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "501": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AmlScreenResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ocr/extract": {
+      "post": {
+        "tags": [
+          "KYC"
+        ],
+        "summary": "Extract document fields (legacy path)",
+        "operationId": "extract_ocr_legacy_api_v1_ocr_extract_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_extract_ocr_legacy_api_v1_ocr_extract_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OCROnlyResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/liveness/challenge": {
+      "get": {
+        "tags": [
+          "KYC"
+        ],
+        "summary": "Create a liveness challenge (legacy path)",
+        "operationId": "generate_challenge_api_v1_liveness_challenge_get",
+        "parameters": [
+          {
+            "name": "types",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated challenge types, e.g. turn_left,turn_right",
+              "title": "Types"
+            },
+            "description": "Comma-separated challenge types, e.g. turn_left,turn_right"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/liveness/verify": {
+      "post": {
+        "tags": [
+          "KYC"
+        ],
+        "summary": "Verify a liveness challenge (legacy path)",
+        "operationId": "verify_liveness_api_v1_liveness_verify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LivenessVerificationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/liveness/detect": {
+      "post": {
+        "tags": [
+          "KYC"
+        ],
+        "summary": "Batch liveness detection (legacy path)",
+        "operationId": "detect_liveness_api_v1_liveness_detect_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LivenessBatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AmlHealthResponse": {
+        "properties": {
+          "domain": {
+            "type": "string",
+            "title": "Domain",
+            "default": "aml"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": "not_implemented"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Timestamp"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "title": "AmlHealthResponse"
+      },
+      "AmlParty": {
+        "properties": {
+          "full_name": {
+            "type": "string",
+            "title": "Full Name",
+            "description": "Name to screen"
+          },
+          "date_of_birth": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date Of Birth"
+          },
+          "nationality": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nationality"
+          },
+          "document_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Number"
+          }
+        },
+        "type": "object",
+        "required": [
+          "full_name"
+        ],
+        "title": "AmlParty"
+      },
+      "AmlScreenRequest": {
+        "properties": {
+          "party": {
+            "$ref": "#/components/schemas/AmlParty"
+          },
+          "lists": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Lists",
+            "description": "Watchlists to query"
+          }
+        },
+        "type": "object",
+        "required": [
+          "party"
+        ],
+        "title": "AmlScreenRequest"
+      },
+      "AmlScreenResponse": {
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/AmlScreenStatus"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "matches": {
+            "items": {
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Matches"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Timestamp"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "message"
+        ],
+        "title": "AmlScreenResponse"
+      },
+      "AmlScreenStatus": {
+        "type": "string",
+        "enum": [
+          "clear",
+          "potential_match",
+          "confirmed_match",
+          "error"
+        ],
+        "title": "AmlScreenStatus"
+      },
+      "Body_extract_ocr_api_v1_kyc_ocr_post": {
+        "properties": {
+          "document": {
+            "type": "string",
+            "format": "binary",
+            "title": "Document",
+            "description": "Document image for OCR"
+          }
+        },
+        "type": "object",
+        "required": [
+          "document"
+        ],
+        "title": "Body_extract_ocr_api_v1_kyc_ocr_post"
+      },
+      "Body_extract_ocr_legacy_api_v1_ocr_extract_post": {
+        "properties": {
+          "document": {
+            "type": "string",
+            "format": "binary",
+            "title": "Document",
+            "description": "Document image for OCR"
+          }
+        },
+        "type": "object",
+        "required": [
+          "document"
+        ],
+        "title": "Body_extract_ocr_legacy_api_v1_ocr_extract_post"
+      },
+      "Body_verify_kyc_api_v1_kyc_verify_post": {
+        "properties": {
+          "id_document": {
+            "type": "string",
+            "format": "binary",
+            "title": "Id Document",
+            "description": "ID card or passport image"
+          },
+          "selfie_image": {
+            "type": "string",
+            "format": "binary",
+            "title": "Selfie Image",
+            "description": "Selfie photo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id_document",
+          "selfie_image"
+        ],
+        "title": "Body_verify_kyc_api_v1_kyc_verify_post"
+      },
+      "ChallengeResponse": {
+        "properties": {
+          "challenge_id": {
+            "type": "string",
+            "title": "Challenge Id"
+          },
+          "multi_challenge": {
+            "type": "boolean",
+            "title": "Multi Challenge",
+            "default": false
+          },
+          "challenge_type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChallengeType"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "question": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question"
+          },
+          "instruction": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instruction"
+          },
+          "challenge_types": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ChallengeType"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Challenge Types"
+          },
+          "questions": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Questions"
+          },
+          "instructions": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instructions"
+          },
+          "timestamp": {
+            "type": "number",
+            "title": "Timestamp"
+          },
+          "expires_at": {
+            "type": "number",
+            "title": "Expires At"
+          },
+          "nonce": {
+            "type": "string",
+            "title": "Nonce"
+          },
+          "signature": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signature"
+          }
+        },
+        "type": "object",
+        "required": [
+          "challenge_id",
+          "timestamp",
+          "expires_at",
+          "nonce"
+        ],
+        "title": "ChallengeResponse"
+      },
+      "ChallengeStatus": {
+        "type": "string",
+        "enum": [
+          "pass",
+          "fail",
+          "pending",
+          "expired",
+          "invalid"
+        ],
+        "title": "ChallengeStatus"
+      },
+      "ChallengeType": {
+        "type": "string",
+        "enum": [
+          "blink",
+          "turn_left",
+          "turn_right"
+        ],
+        "title": "ChallengeType"
+      },
+      "ErrorResponse": {
+        "properties": {
+          "error": {
+            "type": "string",
+            "title": "Error",
+            "description": "Error type"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "description": "Human-readable error message"
+          },
+          "details": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Details"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Timestamp"
+          }
+        },
+        "type": "object",
+        "required": [
+          "error",
+          "message"
+        ],
+        "title": "ErrorResponse",
+        "example": {
+          "details": {
+            "confidence_threshold": 0.6
+          },
+          "error": "ValidationError",
+          "message": "No face detected in ID document",
+          "timestamp": "2024-10-11T10:30:00Z"
+        }
+      },
+      "FaceMatchData": {
+        "properties": {
+          "verified": {
+            "type": "boolean",
+            "title": "Verified",
+            "description": "Whether faces match"
+          },
+          "confidence": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "description": "Match confidence score"
+          },
+          "similarity_metrics": {
+            "$ref": "#/components/schemas/SimilarityMetrics"
+          },
+          "threshold_used": {
+            "type": "number",
+            "title": "Threshold Used"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "verified",
+          "confidence",
+          "similarity_metrics",
+          "threshold_used",
+          "message"
+        ],
+        "title": "FaceMatchData"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HealthCheckResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "healthy | degraded | unhealthy"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "models": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ModelStatus"
+            },
+            "type": "object",
+            "title": "Models"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Timestamp"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "version",
+          "models"
+        ],
+        "title": "HealthCheckResponse"
+      },
+      "KYCVerificationResponse": {
+        "properties": {
+          "verification_status": {
+            "$ref": "#/components/schemas/VerificationStatus"
+          },
+          "confidence_score": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence Score"
+          },
+          "face_match_score": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Face Match Score"
+          },
+          "ocr_data": {
+            "$ref": "#/components/schemas/OCRData"
+          },
+          "processing_time_ms": {
+            "type": "integer",
+            "title": "Processing Time Ms"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Timestamp"
+          },
+          "face_verification_details": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FaceMatchData"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "verification_status",
+          "confidence_score",
+          "face_match_score",
+          "ocr_data",
+          "processing_time_ms"
+        ],
+        "title": "KYCVerificationResponse"
+      },
+      "LivenessBatchRequest": {
+        "properties": {
+          "frames": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Frames"
+          },
+          "initial_blink_count": {
+            "type": "integer",
+            "title": "Initial Blink Count",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "frames"
+        ],
+        "title": "LivenessBatchRequest"
+      },
+      "LivenessBatchResponse": {
+        "properties": {
+          "total_blinks": {
+            "type": "integer",
+            "title": "Total Blinks"
+          },
+          "final_blink_count": {
+            "type": "integer",
+            "title": "Final Blink Count"
+          },
+          "orientations": {
+            "items": {},
+            "type": "array",
+            "title": "Orientations"
+          },
+          "face_detection_ratio": {
+            "type": "number",
+            "title": "Face Detection Ratio"
+          },
+          "results": {
+            "items": {},
+            "type": "array",
+            "title": "Results"
+          },
+          "frame_count": {
+            "type": "integer",
+            "title": "Frame Count"
+          },
+          "processing_time_ms": {
+            "type": "integer",
+            "title": "Processing Time Ms"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Timestamp"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_blinks",
+          "final_blink_count",
+          "orientations",
+          "face_detection_ratio",
+          "results",
+          "frame_count",
+          "processing_time_ms"
+        ],
+        "title": "LivenessBatchResponse"
+      },
+      "LivenessVerificationRequest": {
+        "properties": {
+          "challenge_id": {
+            "type": "string",
+            "title": "Challenge Id"
+          },
+          "frames": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Frames",
+            "description": "Base64-encoded image frames"
+          }
+        },
+        "type": "object",
+        "required": [
+          "challenge_id",
+          "frames"
+        ],
+        "title": "LivenessVerificationRequest"
+      },
+      "LivenessVerificationResponse": {
+        "properties": {
+          "challenge_id": {
+            "type": "string",
+            "title": "Challenge Id"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ChallengeStatus"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "detection_results": {
+            "type": "object",
+            "title": "Detection Results"
+          },
+          "processing_time_ms": {
+            "type": "integer",
+            "title": "Processing Time Ms"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Timestamp"
+          }
+        },
+        "type": "object",
+        "required": [
+          "challenge_id",
+          "status",
+          "message",
+          "detection_results",
+          "processing_time_ms"
+        ],
+        "title": "LivenessVerificationResponse"
+      },
+      "ModelStatus": {
+        "properties": {
+          "loaded": {
+            "type": "boolean",
+            "title": "Loaded"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loaded",
+          "name"
+        ],
+        "title": "ModelStatus"
+      },
+      "OCRData": {
+        "properties": {
+          "document_type": {
+            "type": "string",
+            "title": "Document Type",
+            "description": "Detected document type"
+          },
+          "confidence": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "description": "Overall OCR confidence"
+          },
+          "extracted_text": {
+            "type": "string",
+            "title": "Extracted Text",
+            "description": "Full raw text extracted"
+          },
+          "fields": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OCRFields"
+              }
+            ],
+            "description": "Structured extracted fields"
+          }
+        },
+        "type": "object",
+        "required": [
+          "document_type",
+          "confidence",
+          "extracted_text",
+          "fields"
+        ],
+        "title": "OCRData"
+      },
+      "OCRFields": {
+        "properties": {
+          "full_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Full Name"
+          },
+          "date_of_birth": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date Of Birth"
+          },
+          "document_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Number"
+          },
+          "nationality": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nationality"
+          },
+          "issue_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issue Date"
+          },
+          "expiry_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expiry Date"
+          },
+          "place_of_birth": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Place Of Birth"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "gender": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gender"
+          }
+        },
+        "type": "object",
+        "title": "OCRFields"
+      },
+      "OCROnlyResponse": {
+        "properties": {
+          "ocr_data": {
+            "$ref": "#/components/schemas/OCRData"
+          },
+          "processing_time_ms": {
+            "type": "integer",
+            "title": "Processing Time Ms"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Timestamp"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ocr_data",
+          "processing_time_ms"
+        ],
+        "title": "OCROnlyResponse"
+      },
+      "SimilarityMetrics": {
+        "properties": {
+          "cosine_similarity": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": -1.0,
+            "title": "Cosine Similarity"
+          },
+          "euclidean_distance": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Euclidean Distance"
+          }
+        },
+        "type": "object",
+        "required": [
+          "cosine_similarity",
+          "euclidean_distance"
+        ],
+        "title": "SimilarityMetrics"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "VerificationStatus": {
+        "type": "string",
+        "enum": [
+          "approved",
+          "rejected",
+          "pending",
+          "error"
+        ],
+        "title": "VerificationStatus"
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Health",
+      "description": "Liveness, readiness, and model status."
+    },
+    {
+      "name": "KYC",
+      "description": "Identity verification: face match, document OCR, and liveness."
+    },
+    {
+      "name": "AML",
+      "description": "Anti-money-laundering screening (coming later)."
+    }
+  ]
+}

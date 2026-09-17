@@ -1,0 +1,31 @@
+# Nexus Bank AI API
+# Python 3.9 — InsightFace / MediaPipe / PaddleOCR compatible
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+# --- API ---
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+pydantic==2.5.0
+pydantic-settings==2.1.0
+PyYAML==6.0.1
+python-dotenv==1.0.0
+aiofiles==23.2.1
+
+# --- Vision ---
+Pillow==10.1.0
+numpy==1.26.2
+opencv-python-headless==4.8.1.78
+torch==2.2.0+cpu
+torchvision==0.17.0+cpu
+
+# --- KYC models ---
+insightface==0.7.3
+onnxruntime==1.12.1
+paddlepaddle>=3.0.0
+paddleocr>=2.7.0
+
+# Liveness
+protobuf>=3.20.0,<4.0.0
+mediapipe==0.10.9
+imutils==0.5.4

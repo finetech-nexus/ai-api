@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+.venv/
+venv/
+ENV/
+env/
+*.egg-info/
+.eggs/
+
+# ML weights (downloaded at image build)
+vendor/kyc/models/*.onnx
+vendor/kyc/models/*.pth
+*.h5
+*.pb
+
+# Env / secrets
+.env
+.env.local
+.env.*.local
+
+# Logs / temp
+logs/
+temp/
+tmp/
+*.log
+
+# Tests / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+
+# IDE
+.idea/
+.vscode/
+.DS_Store

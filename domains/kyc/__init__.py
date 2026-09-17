@@ -1,0 +1,1 @@
+"""KYC computer-vision domain."""
