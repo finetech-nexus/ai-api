@@ -17,9 +17,12 @@ AI_API_WEIGHTS_REPO and AI_API_WEIGHTS_TAG.
 
 import argparse
 import hashlib
+import importlib
 import json
 import os
 import sys
+import time
+import traceback
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -175,35 +178,55 @@ def fetch_insightface() -> None:
         _download(url, headers, dest / name, expected)
 
 
+LOADERS = (
+    ("face_detector", "app.services.face_detector_id", "get_face_detector"),
+    ("face_matcher", "app.services.face_matcher", "get_face_matcher"),
+    ("ocr_extractor", "app.services.ocr_extractor", "get_ocr_extractor"),
+    ("liveness_detector", "app.services.liveness_detector", "get_liveness_detector"),
+)
+
+
 def warm_all() -> None:
-    """Construct every model once."""
-    from app.services.face_detector_id import get_face_detector
-    from app.services.face_matcher import get_face_matcher
-    from app.services.ocr_extractor import get_ocr_extractor
-    from app.services.liveness_detector import get_liveness_detector
+    """Construct every model.
 
-    loaders = (
-        ("face_detector", get_face_detector),
-        ("face_matcher", get_face_matcher),
-        ("ocr_extractor", get_ocr_extractor),
-        ("liveness_detector", get_liveness_detector),
-    )
+    Every loader is attempted even after one fails, so a single build reports the
+    state of all four rather than only the first problem. Imports happen per model
+    so an import error is attributed to the model that caused it.
+    """
     built = {}
-    for name, factory in loaders:
-        print("Warming {}".format(name), flush=True)
-        built[name] = factory()
-        print("Warmed {}".format(name), flush=True)
+    failures = []
+    for name, module_name, factory_name in LOADERS:
+        print("=== warming {}".format(name), flush=True)
+        started = time.monotonic()
+        try:
+            factory = getattr(importlib.import_module(module_name), factory_name)
+            built[name] = factory()
+        except Exception:
+            failures.append(name)
+            print("=== FAILED {}".format(name), flush=True)
+            traceback.print_exc()
+            sys.stderr.flush()
+        else:
+            print(
+                "=== ok {} in {:.1f}s".format(name, time.monotonic() - started),
+                flush=True,
+            )
 
-    # Fail loudly if InsightFace ignored the provisioned pack and downloaded its
-    # own copy from upstream, which would leave 143 MB of unused models in the
-    # image and reintroduce the third-party dependency.
-    resolved = Path(built["face_matcher"].app.model_dir).resolve()
-    expected = insightface_dir().resolve()
-    if resolved != expected:
-        raise SystemExit(
-            "InsightFace loaded {} instead of {}".format(resolved, expected)
-        )
-    print("InsightFace used the provisioned weights at {}".format(resolved))
+    if "face_matcher" in built:
+        # Fail loudly if InsightFace ignored the provisioned pack and downloaded
+        # its own copy from upstream, which would leave 143 MB of unused models in
+        # the image and reintroduce the third-party dependency.
+        resolved = Path(built["face_matcher"].app.model_dir).resolve()
+        expected = insightface_dir().resolve()
+        if resolved != expected:
+            raise SystemExit("InsightFace loaded {} instead of {}".format(resolved, expected))
+        print("InsightFace used the provisioned weights at {}".format(resolved))
+
+    print("\nsummary: {} loaded, {} failed".format(len(built), len(failures)))
+    for name, _, _ in LOADERS:
+        print("  {:<18} {}".format(name, "ok" if name in built else "FAILED"))
+    if failures:
+        raise SystemExit("could not construct: {}".format(", ".join(failures)))
 
 
 def main() -> int:
