@@ -13,20 +13,26 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     gcc \
     g++ \
-    patchelf \
     wget \
     && rm -rf /var/lib/apt/lists/*
 
+# Debian's patchelf is <0.18 and has no --clear-execstack. onnxruntime 1.12.1
+# wheels request an executable stack; GitHub-hosted kernels refuse to map that.
+RUN set -eux; \
+    arch="$(uname -m)"; \
+    wget -qO /tmp/patchelf.tgz \
+      "https://github.com/NixOS/patchelf/releases/download/0.18.0/patchelf-0.18.0-${arch}.tar.gz"; \
+    tar -C /usr/local -xzf /tmp/patchelf.tgz; \
+    rm /tmp/patchelf.tgz; \
+    patchelf --version
+
 COPY requirements.txt .
 RUN pip install --upgrade pip setuptools wheel \
-    && pip install --no-cache-dir --timeout=300 -r requirements.txt \
-    && python -c "import yaml, cv2, insightface, onnxruntime, paddleocr, mediapipe"
+    && pip install --no-cache-dir --timeout=300 -r requirements.txt
 
-# onnxruntime ships .so files with an executable stack, which hardened kernels
-# refuse to map. Best-effort, and kept in its own layer: an ignored failure here
-# must not also mask the pip install above.
 RUN find /usr/local/lib/python3.9/site-packages/onnxruntime -name "*.so" \
-        -exec patchelf --clear-execstack {} \; 2>/dev/null || true
+        -exec patchelf --clear-execstack {} \; \
+    && python -c "import yaml, cv2, insightface, onnxruntime, paddleocr, mediapipe"
 
 COPY main.py ./
 COPY api ./api
