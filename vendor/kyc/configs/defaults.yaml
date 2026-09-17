@@ -18,6 +18,8 @@ paths:
   models_dir: "models/"
   logs_dir: "logs/"
   temp_dir: "temp/"
+  # Passed to InsightFace as `root`; it reads <root>/models/<pack_name>/.
+  insightface_root: "insightface/"
 
 models:
   # YuNet Face Detection

@@ -33,10 +33,8 @@ ENV PYTHONPATH=/app:/app/vendor/kyc
 ENV PYTHONUNBUFFERED=1
 ENV PORT=8000
 
-# Bake every weight into the image: YuNet into paths.models_dir, and the
-# InsightFace and PaddleOCR packs into their $HOME caches by constructing each
-# model once. Startup then needs no network, and a model that cannot load fails
-# the build rather than leaving the pod unready.
+# Construct every model once: startup then needs no network, and a model that
+# cannot load fails the build instead of leaving the pod unready.
 RUN mkdir -p /app/vendor/kyc/logs /app/vendor/kyc/temp \
     && python scripts/download_models.py --all
 

@@ -84,9 +84,13 @@ class InsightFaceMatcher:
         # Initialize FaceAnalysis
         providers = ['CUDAExecutionProvider', 'CPUExecutionProvider'] if use_gpu else ['CPUExecutionProvider']
         
+        # Read the weights committed under configs paths.insightface_root instead of
+        # InsightFace's default ~/.insightface, which it would populate by download.
+        insightface_root = config.get("paths", "insightface_root", default="~/.insightface")
+
         try:
-            logger.info(f"Initializing InsightFace with model: {model_name}")
-            self.app = FaceAnalysis(name=model_name, providers=providers)
+            logger.info(f"Initializing InsightFace with model: {model_name} from {insightface_root}")
+            self.app = FaceAnalysis(name=model_name, root=insightface_root, providers=providers)
             
             # Prepare with device
             try:

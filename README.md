@@ -32,7 +32,7 @@ Legacy aliases (same contract as `kyc/api`, used by `kyc-api` via `ML_BACKEND_UR
 python3.9 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-python scripts/download_models.py   # fetches yunet.onnx into vendor/kyc/models
+python scripts/download_models.py   # verifies the committed weights are in place
 export PYTHONPATH="$(pwd):$(pwd)/vendor/kyc"
 uvicorn main:app --reload --port 8000
 ```
@@ -54,7 +54,24 @@ python scripts/export_openapi.py
 docker compose up --build
 ```
 
-The build runs `scripts/download_models.py --all`, which fetches YuNet and constructs the InsightFace and PaddleOCR models once so their weight packs are cached in the image. Startup therefore needs no network, and a model that cannot load fails the build instead of leaving the pod permanently unready. The trade-off is a slower, larger build.
+The build runs `scripts/download_models.py --all`, which constructs every model once. Startup therefore needs no network, and a model that cannot load fails the build instead of leaving the pod permanently unready.
+
+## ML weights
+
+Weights are committed rather than downloaded, so builds do not depend on third-party CDNs:
+
+| Path | Size | Used by |
+| --- | --- | --- |
+| `vendor/kyc/models/yunet.onnx` | 227 KB | face detection |
+| `vendor/kyc/models/haarcascade_*.xml` | 1.4 MB | profile detection |
+| `vendor/kyc/insightface/models/buffalo_l/w600k_r50.onnx` | 166 MB | face matching (embeddings) |
+| `vendor/kyc/insightface/models/buffalo_l/det_10g.onnx` | 16 MB | unused, but `FaceAnalysis` asserts a detection model exists |
+
+`buffalo_l` normally ships five models; the other three (`1k3d68`, `2d106det`, `genderage`) are not used here and are deliberately excluded. `FaceAnalysis` loads every `.onnx` it finds in the pack directory, so omitting them saves roughly 143 MB of image size and the same again in per-pod memory.
+
+Both locations come from `paths.*` in `vendor/kyc/configs/defaults.yaml`, resolved against `vendor/kyc` rather than the working directory or `$HOME`. That matters: `FaceAnalysis` defaults to `root='~/.insightface'` and downloads a fresh pack when it is missing, so a change to the runtime user (`securityContext.runAsUser`, a `USER` line) would otherwise move the lookup and silently restore the network dependency at startup. `scripts/download_models.py --all` asserts during the build that InsightFace resolved to the committed path.
+
+PaddleOCR is the one exception: its detection and recognition weights are still fetched during the image build, because the cache location depends on the library version. `paddleocr` and `paddlepaddle` are pinned for that reason — see the comments in `requirements.txt`.
 
 Image: `nexusbank/ai-api`. GitHub Actions build and push `latest` + git SHA on `main`, and version tags on `v*` releases.
 

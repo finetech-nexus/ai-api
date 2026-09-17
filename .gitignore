@@ -10,9 +10,15 @@ env/
 *.egg-info/
 .eggs/
 
-# ML weights (downloaded at image build)
+# Small ML weights are committed so builds need no network (see README). The glob
+# stays narrow so a new large model dropped in here is not committed by accident.
 vendor/kyc/models/*.onnx
+!vendor/kyc/models/yunet.onnx
 vendor/kyc/models/*.pth
+
+# InsightFace pack: w600k_r50.onnx is 166 MB, over GitHub's hard 100 MB per-file
+# limit, so it cannot live in plain git. See README for how it is provisioned.
+vendor/kyc/insightface/
 *.h5
 *.pb
 

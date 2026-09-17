@@ -22,8 +22,12 @@ torchvision==0.17.0+cpu
 # --- KYC models ---
 insightface==0.7.3
 onnxruntime==1.12.1
-paddlepaddle>=3.0.0
-paddleocr>=2.7.0
+# Pinned: PaddleOCR moved its weight cache between 2.x (~/.paddleocr) and 3.x
+# (~/.paddlex), so a floating range can relocate it and change the API surface.
+# paddlepaddle 3.2.2 is the newest with cp39 wheels for both manylinux x86_64 and
+# aarch64, so images build on arm64 laptops as well as x86 CI.
+paddlepaddle==3.2.2
+paddleocr==3.4.1
 
 # Liveness
 protobuf>=3.20.0,<4.0.0
