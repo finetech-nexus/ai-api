@@ -72,14 +72,18 @@ New AI products (AML, fraud, …) go under `domains/<name>` and `api/v1/<name>`.
 
 ## Kubernetes
 
-GitOps lives in `k8s-gitops`:
+`ai-api` ships as a subchart of the `core-api` umbrella chart, alongside `core-banking-api` and `kyc-api`:
 
-- Helm chart: `apps/ai-api/chart`
-- TN/dev: `apps/ai-api/overlays/dev` → `ai-api.api.dev.sandbox.internal.nbank.fr`
-- EU/dev: `apps/ai-api-eu/overlays/dev` → `ai-api.api.dev1.sandbox.internal.nbank.fr`
+- Helm chart: `core-api-charts/ai-api`, published to `ghcr.io/finetech-nexus/core-api-charts`
+- TN/dev values: `k8s-gitops/apps/api/overlays/dev/values.yaml` → `ai-api.api.dev.sandbox.internal.nbank.fr`
+- EU/dev values: `k8s-gitops/apps/api-eu/overlays/dev/values.yaml` → `ai-api.api.dev1.sandbox.internal.nbank.fr`
 
-After the image is in Docker Hub, Flux reconciles the HelmRelease. Point `kyc-api` `ML_BACKEND_URL` at the in-cluster service when you are ready to switch the Node BFF off `localhost:8000`:
+It is gated behind `ai-api.enabled`, which defaults to `false` in the chart. An environment must opt in, and setting it back to `false` removes the workload without touching the sibling APIs — the escape hatch for sharing one release with them.
+
+Bump `core-api-charts/Chart.yaml` and the `version` in the two `helmrelease-core-api.yaml` files together; Flux only pulls a chart version it is pinned to.
+
+Since `ai-api` now runs in the same namespace as the Node BFF, point `kyc-api` `ML_BACKEND_URL` at the sibling service when you are ready to switch off `localhost:8000`:
 
 ```text
-http://ai-api.ai.svc.cluster.local
+http://core-api-ai-api
 ```
