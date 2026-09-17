@@ -1,18 +1,26 @@
 #!/usr/bin/env python3
-"""Check the ML weights the service needs, and optionally load them once.
+"""Provision the ML weights the service needs.
 
-All weights are committed under vendor/kyc, so this normally has nothing to
-download. Run with --all during the image build to construct every model:
+Small weights are committed under vendor/kyc. The InsightFace pack is not: at
+166 MB it exceeds GitHub's 100 MB per-file limit, so it is published as a release
+asset on this repo and fetched here, verified against a pinned SHA-256.
 
-    python scripts/download_models.py --all
+    python scripts/download_models.py          # fetch what is missing
+    python scripts/download_models.py --all    # also construct every model
 
-That proves the models load (a broken image fails the build instead of leaving
-the pod unready) and caches PaddleOCR's weights, the one set still fetched from
-the network.
+Use --all in the image build: it caches PaddleOCR's weights and proves the models
+load, so a broken image fails the build instead of leaving the pod unready.
+
+Set GITHUB_TOKEN when the repo is private. Override the source with
+AI_API_WEIGHTS_REPO and AI_API_WEIGHTS_TAG.
 """
 
 import argparse
+import hashlib
+import json
+import os
 import sys
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -21,7 +29,26 @@ sys.path[:0] = [str(ROOT), str(ROOT / "vendor" / "kyc")]
 
 from configs.config import config  # noqa: E402
 
+WEIGHTS_REPO = os.environ.get("AI_API_WEIGHTS_REPO", "finetech-nexus/ai-api")
+WEIGHTS_TAG = os.environ.get("AI_API_WEIGHTS_TAG", "weights-v1")
+
 INSIGHTFACE_PACK = "buffalo_l"
+
+# Trimmed buffalo_l: the recognition model plus the detection model FaceAnalysis
+# asserts on. Digests are from the upstream v0.7 pack, so they hold wherever the
+# asset is hosted. The other three models in the pack are unused here.
+INSIGHTFACE_FILES = {
+    "det_10g.onnx": "5838f7fe053675b1c7a08b633df49e7af5495cee0493c7dcf6697200b85b5b91",
+    "w600k_r50.onnx": "4c06341c33c2ca1f86781dab0e829f88ad5b64be9fba56e56bc9ebdefc619e43",
+}
+
+
+def sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
 
 
 def insightface_dir() -> Path:
@@ -30,7 +57,77 @@ def insightface_dir() -> Path:
     return root.expanduser() / "models" / INSIGHTFACE_PACK
 
 
-def check_yunet() -> None:
+def _urlopen(url, headers):
+    request = urllib.request.Request(url, headers=headers)
+    try:
+        return urllib.request.urlopen(request)
+    except urllib.error.HTTPError as exc:
+        hint = (
+            "set GITHUB_TOKEN if the repo is private"
+            if exc.code in (401, 403, 404) and "Authorization" not in headers
+            else "check the token's scopes"
+        )
+        raise SystemExit(
+            "HTTP {} ({}) fetching {}\n"
+            "  If the weights release does not exist yet, publish it with:\n"
+            "    gh release create {} --repo {} \\\n"
+            "      --title 'InsightFace {} (trimmed)' \\\n"
+            "      vendor/kyc/insightface/models/{}/*.onnx\n"
+            "  Otherwise: {}".format(
+                exc.code, exc.reason, url,
+                WEIGHTS_TAG, WEIGHTS_REPO,
+                INSIGHTFACE_PACK, INSIGHTFACE_PACK,
+                hint,
+            )
+        )
+
+
+def _release_assets(token):
+    """Map asset name -> (url, headers).
+
+    A public repo serves release assets from a predictable URL. A private one
+    requires resolving the asset through the API and asking for octet-stream.
+    """
+    if not token:
+        base = "https://github.com/{}/releases/download/{}".format(WEIGHTS_REPO, WEIGHTS_TAG)
+        return {name: ("{}/{}".format(base, name), {}) for name in INSIGHTFACE_FILES}
+
+    api = "https://api.github.com/repos/{}/releases/tags/{}".format(WEIGHTS_REPO, WEIGHTS_TAG)
+    release = json.load(_urlopen(api, {
+        "Authorization": "Bearer {}".format(token),
+        "Accept": "application/vnd.github+json",
+    }))
+    headers = {
+        "Authorization": "Bearer {}".format(token),
+        "Accept": "application/octet-stream",
+    }
+    return {asset["name"]: (asset["url"], headers) for asset in release.get("assets", [])}
+
+
+def _download(url, headers, target: Path, expected: str) -> None:
+    print("Downloading {} -> {}".format(url, target), flush=True)
+    tmp = target.with_suffix(target.suffix + ".part")
+    with _urlopen(url, headers) as response, open(tmp, "wb") as handle:
+        while True:
+            block = response.read(1024 * 1024)
+            if not block:
+                break
+            handle.write(block)
+
+    actual = sha256(tmp)
+    if actual != expected:
+        tmp.unlink()
+        raise SystemExit(
+            "checksum mismatch for {}\n  expected {}\n  got      {}".format(
+                target.name, expected, actual
+            )
+        )
+    tmp.replace(target)
+    print("Wrote {} ({:.1f} MB)".format(target, target.stat().st_size / 1024 / 1024))
+
+
+def fetch_yunet() -> None:
+    """Committed under vendor/kyc/models; fetch only if somehow absent."""
     models_dir = Path(config.get("paths", "models_dir", default="models"))
     models_dir.mkdir(parents=True, exist_ok=True)
     target = models_dir / config.get(
@@ -48,17 +145,34 @@ def check_yunet() -> None:
     tmp.replace(target)
 
 
-def check_insightface() -> None:
-    """The pack is committed; a download here would mean the path is wrong."""
-    target = insightface_dir()
-    models = sorted(target.glob("*.onnx"))
-    if not models:
-        raise SystemExit(
-            "no committed InsightFace weights in {}; InsightFace would download "
-            "the full pack instead".format(target)
-        )
-    for model in models:
-        print("{} ({:.1f} MB)".format(model, model.stat().st_size / 1024 / 1024))
+def fetch_insightface() -> None:
+    dest = insightface_dir()
+    dest.mkdir(parents=True, exist_ok=True)
+
+    missing = {}
+    for name, expected in INSIGHTFACE_FILES.items():
+        target = dest / name
+        if target.exists() and sha256(target) == expected:
+            print("{} ({:.1f} MB, verified)".format(target, target.stat().st_size / 1024 / 1024))
+        else:
+            missing[name] = expected
+    if not missing:
+        return
+
+    token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+    assets = _release_assets(token)
+    for name, expected in missing.items():
+        if name not in assets:
+            raise SystemExit(
+                "{} is not an asset of {} release {}{}".format(
+                    name,
+                    WEIGHTS_REPO,
+                    WEIGHTS_TAG,
+                    "" if token else " (set GITHUB_TOKEN if the repo is private)",
+                )
+            )
+        url, headers = assets[name]
+        _download(url, headers, dest / name, expected)
 
 
 def warm_all() -> None:
@@ -80,19 +194,20 @@ def warm_all() -> None:
         built[name] = factory()
         print("Warmed {}".format(name), flush=True)
 
-    # Fail loudly if InsightFace ignored the committed pack and downloaded its
-    # own copy, which would silently reintroduce the network dependency.
+    # Fail loudly if InsightFace ignored the provisioned pack and downloaded its
+    # own copy from upstream, which would leave 143 MB of unused models in the
+    # image and reintroduce the third-party dependency.
     resolved = Path(built["face_matcher"].app.model_dir).resolve()
     expected = insightface_dir().resolve()
     if resolved != expected:
         raise SystemExit(
-            "InsightFace loaded {} instead of the committed {}".format(resolved, expected)
+            "InsightFace loaded {} instead of {}".format(resolved, expected)
         )
-    print("InsightFace used the committed weights at {}".format(resolved))
+    print("InsightFace used the provisioned weights at {}".format(resolved))
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Check ML weights for ai-api.")
+    parser = argparse.ArgumentParser(description="Provision ML weights for ai-api.")
     parser.add_argument(
         "--all",
         action="store_true",
@@ -100,8 +215,8 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    check_yunet()
-    check_insightface()
+    fetch_yunet()
+    fetch_insightface()
     if args.all:
         warm_all()
     return 0

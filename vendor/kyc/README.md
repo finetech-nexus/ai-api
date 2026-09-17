@@ -14,5 +14,5 @@ This is no longer a byte-for-byte copy. Re-apply these when re-syncing from `kyc
 
 ## Weights
 
-- `models/yunet.onnx`, `models/haarcascade_*.xml` — face and profile detection.
-- `insightface/models/buffalo_l/` — `w600k_r50.onnx` (embeddings) and `det_10g.onnx`. The three unused models from the upstream pack are omitted; `FaceAnalysis` loads every `.onnx` it finds, so they would cost image size and memory for nothing.
+- `models/yunet.onnx`, `models/haarcascade_*.xml` — face and profile detection. Committed.
+- `insightface/models/buffalo_l/` — `w600k_r50.onnx` (embeddings) and `det_10g.onnx`. Not committed: too large for git, so `scripts/download_models.py` pulls them from this repo's `weights-v1` release. The three unused models from the upstream pack are omitted; `FaceAnalysis` loads every `.onnx` it finds, so they would cost image size and memory for nothing.

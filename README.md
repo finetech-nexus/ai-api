@@ -32,7 +32,7 @@ Legacy aliases (same contract as `kyc/api`, used by `kyc-api` via `ML_BACKEND_UR
 python3.9 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-python scripts/download_models.py   # verifies the committed weights are in place
+python scripts/download_models.py   # fetches/verifies the InsightFace pack
 export PYTHONPATH="$(pwd):$(pwd)/vendor/kyc"
 uvicorn main:app --reload --port 8000
 ```
@@ -58,16 +58,32 @@ The build runs `scripts/download_models.py --all`, which constructs every model 
 
 ## ML weights
 
-Weights are committed rather than downloaded, so builds do not depend on third-party CDNs:
+No weight is fetched from a third-party CDN. The small ones are committed; the InsightFace pack is published as a release asset on this repo, because at 166 MB it exceeds GitHub's hard 100 MB per-file limit for git.
 
-| Path | Size | Used by |
-| --- | --- | --- |
-| `vendor/kyc/models/yunet.onnx` | 227 KB | face detection |
-| `vendor/kyc/models/haarcascade_*.xml` | 1.4 MB | profile detection |
-| `vendor/kyc/insightface/models/buffalo_l/w600k_r50.onnx` | 166 MB | face matching (embeddings) |
-| `vendor/kyc/insightface/models/buffalo_l/det_10g.onnx` | 16 MB | unused, but `FaceAnalysis` asserts a detection model exists |
+| Path | Size | Source | Used by |
+| --- | --- | --- | --- |
+| `vendor/kyc/models/yunet.onnx` | 227 KB | committed | face detection |
+| `vendor/kyc/models/haarcascade_*.xml` | 1.4 MB | committed | profile detection |
+| `vendor/kyc/insightface/models/buffalo_l/w600k_r50.onnx` | 166 MB | `weights-v1` release | face matching (embeddings) |
+| `vendor/kyc/insightface/models/buffalo_l/det_10g.onnx` | 16 MB | `weights-v1` release | unused, but `FaceAnalysis` asserts a detection model exists |
 
 `buffalo_l` normally ships five models; the other three (`1k3d68`, `2d106det`, `genderage`) are not used here and are deliberately excluded. `FaceAnalysis` loads every `.onnx` it finds in the pack directory, so omitting them saves roughly 143 MB of image size and the same again in per-pod memory.
+
+### Publishing the weights release
+
+Needed once, and again only if the pack changes:
+
+```bash
+gh release create weights-v1 --repo finetech-nexus/ai-api \
+  --title 'InsightFace buffalo_l (trimmed)' \
+  --notes 'det_10g.onnx and w600k_r50.onnx from the upstream v0.7 pack.' \
+  vendor/kyc/insightface/models/buffalo_l/det_10g.onnx \
+  vendor/kyc/insightface/models/buffalo_l/w600k_r50.onnx
+```
+
+`scripts/download_models.py` fetches whatever is missing and verifies it against the SHA-256 digests pinned in the script, which are the upstream ones — so a swapped or truncated asset fails the build. Files already present and matching are left alone, which is why a local checkout with the weights never re-downloads. Pass `GITHUB_TOKEN` while the repo is private; the image build receives it as a BuildKit secret from the workflows.
+
+Release assets allow 2 GB per file and do not consume Git LFS storage or bandwidth. Publishing a `weights-*` release does not trigger an image build — `release-image.yml` skips those tags.
 
 Both locations come from `paths.*` in `vendor/kyc/configs/defaults.yaml`, resolved against `vendor/kyc` rather than the working directory or `$HOME`. That matters: `FaceAnalysis` defaults to `root='~/.insightface'` and downloads a fresh pack when it is missing, so a change to the runtime user (`securityContext.runAsUser`, a `USER` line) would otherwise move the lookup and silently restore the network dependency at startup. `scripts/download_models.py --all` asserts during the build that InsightFace resolved to the committed path.
 
