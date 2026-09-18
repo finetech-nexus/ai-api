@@ -1,10 +1,3 @@
-from fastapi.testclient import TestClient
-
-from api.api import app
-
-
-client = TestClient(app)
-
 EXPECTED_PATHS = {
     "/health",
     "/ready",
@@ -23,7 +16,7 @@ EXPECTED_PATHS = {
 }
 
 
-def test_openapi_exposes_kyc_and_aml():
+def test_openapi_exposes_kyc_and_aml(client):
     response = client.get("/openapi.json")
     assert response.status_code == 200
     spec = response.json()

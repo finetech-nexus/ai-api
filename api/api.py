@@ -11,7 +11,7 @@ import asyncio
 import os
 import time
 from contextlib import asynccontextmanager
-from typing import Optional
+from typing import Dict, Optional
 
 from fastapi import FastAPI, File, UploadFile, HTTPException, status, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -58,6 +58,14 @@ face_matcher = None
 ocr_extractor = None
 liveness_detector = None  # Liveness detection service
 ml_import_error: Optional[str] = None  # Track if ML libraries failed to import
+model_errors: Dict[str, str] = {}
+
+MODEL_LOADERS = (
+    ("face_detector", "yunet"),
+    ("face_matcher", "insightface"),
+    ("ocr_extractor", "paddleocr"),
+    ("liveness_detector", "mediapipe+haar"),
+)
 
 # Semaphore to limit concurrent processing
 MAX_CONCURRENT = config.get("processing", "max_concurrent_requests", default=10)
@@ -71,61 +79,71 @@ processing_semaphore = asyncio.Semaphore(MAX_CONCURRENT)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Load models at startup, cleanup at shutdown."""
-    global face_detector, face_matcher, ocr_extractor, liveness_detector, ml_import_error
-    
-    logger.info("🚀 Starting KYC Verification Service...")
+    global face_detector, face_matcher, ocr_extractor, liveness_detector
+    global ml_import_error, model_errors
+
+    logger.info("Starting KYC Verification Service...")
 
     if os.environ.get("AI_API_SKIP_ML") == "1":
         ml_import_error = "AI_API_SKIP_ML=1"
+        model_errors = {name: "AI_API_SKIP_ML=1" for name, _ in MODEL_LOADERS}
         logger.warning("AI_API_SKIP_ML=1: models not loaded")
         yield
         return
-    
+
+    factories = {}
     try:
-        # ✅ LAZY IMPORT: Import ML libraries here, not at module level
         logger.info("Importing ML libraries...")
-        
-        # Try importing onnxruntime directly to see the real error
-        try:
-            import onnxruntime as ort
-            logger.info(f"✓ onnxruntime imported successfully (version: {ort.__version__})")
-        except Exception as ort_error:
-            logger.error(f"❌ onnxruntime import failed: {type(ort_error).__name__}: {ort_error}")
-            raise ImportError(f"onnxruntime failed: {ort_error}")
-        
+        import onnxruntime as ort
+
+        logger.info("onnxruntime %s", ort.__version__)
         from app.services.face_detector_id import get_face_detector
         from app.services.face_matcher import get_face_matcher
         from app.services.ocr_extractor import get_ocr_extractor
-        logger.info("✓ ML libraries imported")
-        
-        logger.info("Loading face detector...")
-        face_detector = await asyncio.to_thread(get_face_detector)
-        logger.info("✓ Face detector loaded")
-        
-        logger.info("Loading face matcher...")
-        face_matcher = await asyncio.to_thread(get_face_matcher)
-        logger.info("✓ Face matcher loaded")
-        
-        logger.info("Loading OCR extractor...")
-        ocr_extractor = await asyncio.to_thread(get_ocr_extractor)
-        logger.info("✓ OCR extractor loaded")
-        
-        logger.info("Loading liveness detector...")
         from app.services.liveness_detector import get_liveness_detector
-        liveness_detector = await asyncio.to_thread(get_liveness_detector)
-        logger.info("✓ Liveness detector loaded")
-        
-        logger.info("✅ All models loaded successfully")
-    except Exception as e:
-        error_msg = f"ML libraries not available: {str(e)}"
-        ml_import_error = error_msg
-        logger.error(f"⚠️ {error_msg}")
-    
-    yield  # Server starts here
-    
-    # Cleanup on shutdown
+
+        factories = {
+            "face_detector": get_face_detector,
+            "face_matcher": get_face_matcher,
+            "ocr_extractor": get_ocr_extractor,
+            "liveness_detector": get_liveness_detector,
+        }
+    except Exception as exc:
+        ml_import_error = "import: {}: {}".format(type(exc).__name__, exc)
+        model_errors = {name: ml_import_error for name, _ in MODEL_LOADERS}
+        logger.exception("ML import failed")
+        yield
+        logger.info("Shutting down...")
+        return
+
+    for name, factory in factories.items():
+        logger.info("Loading %s...", name)
+        try:
+            instance = await asyncio.to_thread(factory)
+        except Exception as exc:
+            model_errors[name] = "{}: {}".format(type(exc).__name__, exc)
+            logger.exception("Failed to load %s", name)
+            continue
+        if name == "face_detector":
+            face_detector = instance
+        elif name == "face_matcher":
+            face_matcher = instance
+        elif name == "ocr_extractor":
+            ocr_extractor = instance
+        else:
+            liveness_detector = instance
+        logger.info("Loaded %s", name)
+
+    if model_errors:
+        ml_import_error = "; ".join(
+            "{}: {}".format(name, err) for name, err in model_errors.items()
+        )
+        logger.error("Models not ready: %s", ml_import_error)
+    else:
+        logger.info("All models loaded successfully")
+
+    yield
     logger.info("Shutting down...")
-    # Add cleanup code here if needed
 
 
 # ============================================================================
@@ -309,15 +327,29 @@ async def liveness():
 @app.get("/ready", tags=["Health"], summary="Readiness probe")
 async def readiness():
     """Models are loaded. Used by Kubernetes readiness probes."""
-    ready = all(
-        model is not None
-        for model in (face_detector, face_matcher, ocr_extractor, liveness_detector)
-    )
-    if ready:
-        return {"status": "ready"}
+    loaded = {
+        "face_detector": face_detector,
+        "face_matcher": face_matcher,
+        "ocr_extractor": ocr_extractor,
+        "liveness_detector": liveness_detector,
+    }
+    models = {
+        name: {
+            "loaded": instance is not None,
+            "name": label,
+            "error": None if instance is not None else model_errors.get(name, ml_import_error),
+        }
+        for (name, label), instance in zip(MODEL_LOADERS, loaded.values())
+    }
+    if all(item["loaded"] for item in models.values()):
+        return {"status": "ready", "models": models}
     return JSONResponse(
         status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        content={"status": "not_ready", "error": ml_import_error},
+        content={
+            "status": "not_ready",
+            "error": ml_import_error,
+            "models": models,
+        },
     )
 
 
@@ -332,28 +364,28 @@ async def health_check():
     models_status["face_detector"] = ModelStatus(
         loaded=face_detector is not None,
         name="yunet",
-        error=ml_import_error if face_detector is None else None
+        error=None if face_detector is not None else model_errors.get("face_detector", ml_import_error),
     )
     
     # Check face matcher
     models_status["face_matcher"] = ModelStatus(
         loaded=face_matcher is not None,
         name="insightface",
-        error=ml_import_error if face_matcher is None else None
+        error=None if face_matcher is not None else model_errors.get("face_matcher", ml_import_error),
     )
     
     # Check OCR extractor
     models_status["ocr_extractor"] = ModelStatus(
         loaded=ocr_extractor is not None,
         name="paddleocr",
-        error=ml_import_error if ocr_extractor is None else None
+        error=None if ocr_extractor is not None else model_errors.get("ocr_extractor", ml_import_error),
     )
     
     # Check liveness detector
     models_status["liveness_detector"] = ModelStatus(
         loaded=liveness_detector is not None,
         name="mediapipe+haar",
-        error=ml_import_error if liveness_detector is None else None
+        error=None if liveness_detector is not None else model_errors.get("liveness_detector", ml_import_error),
     )
     
     all_loaded = all(m.loaded for m in models_status.values())

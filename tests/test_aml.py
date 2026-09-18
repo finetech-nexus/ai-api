@@ -1,12 +1,4 @@
-from fastapi.testclient import TestClient
-
-from api.api import app
-
-
-client = TestClient(app)
-
-
-def test_aml_health():
+def test_aml_health(client):
     response = client.get("/api/v1/aml/health")
     assert response.status_code == 200
     body = response.json()
@@ -14,7 +6,7 @@ def test_aml_health():
     assert body["status"] == "not_implemented"
 
 
-def test_aml_screen_not_implemented():
+def test_aml_screen_not_implemented(client):
     response = client.post(
         "/api/v1/aml/screen",
         json={"party": {"full_name": "Jane Doe"}, "lists": ["sanctions"]},
