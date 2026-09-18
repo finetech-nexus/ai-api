@@ -13,9 +13,10 @@ import time
 from contextlib import asynccontextmanager
 from typing import Dict, Optional
 
-from fastapi import FastAPI, File, UploadFile, HTTPException, status, Query
+from fastapi import FastAPI, File, Request, UploadFile, HTTPException, status, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.responses import Response as RawResponse
 
 try:
     import cv2
@@ -179,13 +180,57 @@ app.add_middleware(
 
 app.include_router(aml_router, prefix="/api/v1/aml", tags=["AML"])
 
+# Probe and docs traffic is noisy; log KYC/AML resources and their payloads.
+_SKIP_LOG_PATHS = {"/health", "/ready", "/docs", "/redoc", "/openapi.json"}
+_MAX_RESULT_CHARS = 2000
+
+
+def _resource_name(path: str) -> str:
+    parts = [segment for segment in path.split("/") if segment]
+    return "/" + (parts[-1] if parts else "")
+
+
+@app.middleware("http")
+async def log_endpoint_result(request: Request, call_next):
+    response = await call_next(request)
+    path = request.url.path
+    if path in _SKIP_LOG_PATHS or path.startswith("/docs") or path.startswith("/redoc"):
+        return response
+
+    body = b""
+    async for chunk in response.body_iterator:
+        body += chunk
+
+    result = body.decode("utf-8", errors="replace") or "-"
+    if len(result) > _MAX_RESULT_CHARS:
+        result = result[:_MAX_RESULT_CHARS] + "...[truncated]"
+
+    logger.info(
+        "resource=%s path=%s method=%s status=%s result=%s",
+        _resource_name(path),
+        path,
+        request.method,
+        response.status_code,
+        result,
+    )
+
+    headers = dict(response.headers)
+    headers.pop("content-length", None)
+    return RawResponse(
+        content=body,
+        status_code=response.status_code,
+        headers=headers,
+        media_type=response.media_type,
+        background=getattr(response, "background", None),
+    )
+
 
 # ============================================================================
 # Exception Handlers
 # ============================================================================
 
 @app.exception_handler(HTTPException)
-async def http_exception_handler(request, exc):
+async def http_exception_handler(request: Request, exc: HTTPException):
     return JSONResponse(
         status_code=exc.status_code,
         content=ErrorResponse(
