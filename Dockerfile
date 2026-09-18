@@ -19,6 +19,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
+# Debian's patchelf is too old for --clear-execstack. onnxruntime 1.12.1
+# requests an executable stack; the cluster kernel then rejects the .so
+# (ImportError: cannot enable executable stack ... Invalid argument) and
+# /ready stays 503. This only patches the binaries. It does not construct
+# models, so it does not hit the PaddleOCR SIGSEGV that --all caused.
+RUN set -eux; \
+    arch="$(uname -m)"; \
+    wget -qO /tmp/patchelf.tgz \
+      "https://github.com/NixOS/patchelf/releases/download/0.18.0/patchelf-0.18.0-${arch}.tar.gz"; \
+    tar -C /usr/local -xzf /tmp/patchelf.tgz; \
+    rm /tmp/patchelf.tgz; \
+    patchelf --version
+
 # ---------------------------------------------------------------------------
 # Python dependencies
 # ---------------------------------------------------------------------------
@@ -32,6 +45,10 @@ RUN pip install --upgrade \
         --no-cache-dir \
         --timeout=300 \
         -r requirements.txt
+
+RUN find /usr/local/lib/python3.9/site-packages/onnxruntime -name "*.so" \
+        -exec patchelf --clear-execstack {} \; \
+    && python -c "import onnxruntime"
 
 # ---------------------------------------------------------------------------
 # Application
