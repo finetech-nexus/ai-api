@@ -158,6 +158,11 @@ class OCROnlyResponse(BaseModel):
         }
 
 
+class OCRRequest(BaseModel):
+    """JSON OCR request used by the mobile KYC scan flow."""
+    document: str = Field(description="Base64-encoded document image (data URI allowed)")
+
+
 # ============================================================================
 # Error Response
 # ============================================================================

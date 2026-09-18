@@ -26,3 +26,16 @@ def test_openapi_exposes_kyc_and_aml(client):
     assert not missing, f"missing OpenAPI paths: {missing}"
     assert spec["paths"]["/api/v1/kyc/verify"]["post"]["tags"] == ["KYC"]
     assert spec["paths"]["/api/v1/aml/screen"]["post"]["tags"] == ["AML"]
+    ocr_content = spec["paths"]["/api/v1/kyc/ocr"]["post"]["requestBody"]["content"]
+    assert "application/json" in ocr_content
+
+
+def test_kyc_ocr_accepts_json_document(client):
+    response = client.post(
+        "/api/v1/kyc/ocr",
+        json={"document": "data:image/jpeg;base64,QQ=="},
+    )
+    assert response.status_code != 422
+    detail = str(response.json())
+    assert "UploadFile" not in detail
+    assert "Expected UploadFile" not in detail

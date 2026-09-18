@@ -44,6 +44,7 @@ from api.schemas import (
     LivenessVerificationResponse,
     LivenessBatchRequest,
     LivenessBatchResponse,
+    OCRRequest,
 )
 # ✅ LAZY IMPORT: Don't import ML libraries at module level
 # They will be imported inside functions only when needed
@@ -593,49 +594,26 @@ async def verify_kyc(
             )
 
 
-@app.post(
-    "/api/v1/ocr/extract",
-    response_model=OCROnlyResponse,
-    responses={400: {"model": ErrorResponse}, 500: {"model": ErrorResponse}},
-    tags=["OCR"]
-)
-@app.post(
-    "/api/v1/kyc/ocr",
-    response_model=OCROnlyResponse,
-    responses={400: {"model": ErrorResponse}, 500: {"model": ErrorResponse}},
-    tags=["KYC"],
-)
-async def extract_ocr(
-    document: UploadFile = File(..., description="Document image for OCR extraction")
-):
-    """
-    OCR-only endpoint: Extract text from document without face verification.
-    """
-    start_time = time.time()
-    
+async def run_ocr(doc_image) -> OCROnlyResponse:
     if ocr_extractor is None:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="OCR service not ready. Models still loading."
         )
-    
+    start_time = time.time()
     async with processing_semaphore:
         try:
-            logger.info("Reading uploaded document...")
-            doc_image = await read_upload_file(document)
-            
             logger.info("Extracting OCR...")
             ocr_result = await asyncio.to_thread(
                 ocr_extractor.extract_structured,
                 doc_image
             )
-            
             processing_time_ms = int((time.time() - start_time) * 1000)
-            
+            confidence = max(0.0, min(1.0, float(ocr_result.confidence or 0.0)))
             response = OCROnlyResponse(
                 ocr_data=OCRData(
                     document_type=ocr_result.document_type,
-                    confidence=ocr_result.confidence,
+                    confidence=confidence,
                     extracted_text=ocr_result.extracted_text,
                     fields=OCRFields(**{
                         k: v for k, v in ocr_result.to_dict().items()
@@ -644,10 +622,13 @@ async def extract_ocr(
                 ),
                 processing_time_ms=processing_time_ms
             )
-            
-            logger.info(f"✓ OCR extraction complete ({processing_time_ms}ms)")
+            logger.info(
+                "OCR extraction complete (%sms, type=%s, confidence=%s)",
+                processing_time_ms,
+                ocr_result.document_type,
+                confidence,
+            )
             return response
-        
         except HTTPException:
             raise
         except Exception as e:
@@ -674,37 +655,56 @@ def decode_base64_image(base64_str: str) -> np.ndarray:
     """
     import base64
     from io import BytesIO
-    from PIL import Image
+
+    if cv2 is None or np is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="OpenCV is not installed",
+        )
     
     # Remove data URI prefix if present
     if ',' in base64_str:
-        base64_str = base64_str.split(',')[1]
+        base64_str = base64_str.split(',', 1)[1]
     
     try:
-        # Decode base64
         image_data = base64.b64decode(base64_str)
-        
-        # Convert to PIL Image
+        nparr = np.frombuffer(image_data, np.uint8)
+        image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        if image is not None:
+            return image
+
+        from PIL import Image
         pil_image = Image.open(BytesIO(image_data))
-        
-        # Convert to RGB if needed
         if pil_image.mode != 'RGB':
             pil_image = pil_image.convert('RGB')
-        
-        # Convert to numpy array (RGB)
-        img_array = np.array(pil_image)
-        
-        # Convert RGB to BGR for OpenCV
-        img_bgr = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
-        
-        return img_bgr
+        return cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
     
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Base64 decode error: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Failed to decode base64 image: {str(e)}"
         )
+
+
+@app.post(
+    "/api/v1/ocr/extract",
+    response_model=OCROnlyResponse,
+    responses={400: {"model": ErrorResponse}, 500: {"model": ErrorResponse}},
+    tags=["OCR"],
+)
+@app.post(
+    "/api/v1/kyc/ocr",
+    response_model=OCROnlyResponse,
+    responses={400: {"model": ErrorResponse}, 500: {"model": ErrorResponse}},
+    tags=["KYC"],
+)
+async def extract_ocr(payload: OCRRequest):
+    """OCR from a JSON base64 document image (mobile scan and file clients)."""
+    logger.info("OCR JSON request received (%s chars)", len(payload.document or ""))
+    return await run_ocr(decode_base64_image(payload.document))
 
 
 @app.get(
