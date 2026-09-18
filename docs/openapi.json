@@ -2,413 +2,10 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Nexus Bank AI API",
-    "description": "Platform API for Nexus Bank AI services. KYC (face, OCR, liveness) is live. AML screening will be added as a separate domain.",
-    "contact": {
-      "name": "Nexus Bank"
-    },
-    "license": {
-      "name": "Proprietary"
-    },
-    "version": "0.1.0"
+    "description": "KYC verification (face match, document OCR, liveness) from ./kyc. AML screening is reserved and returns 501 until models are added.",
+    "version": "1.0.0"
   },
   "paths": {
-    "/health": {
-      "get": {
-        "tags": [
-          "Health"
-        ],
-        "summary": "Liveness probe",
-        "description": "Process is up. Used by Kubernetes liveness probes.",
-        "operationId": "liveness_health_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/ready": {
-      "get": {
-        "tags": [
-          "Health"
-        ],
-        "summary": "Readiness probe",
-        "description": "Models are loaded. Used by Kubernetes readiness probes.",
-        "operationId": "readiness_ready_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/health": {
-      "get": {
-        "tags": [
-          "Health"
-        ],
-        "summary": "KYC model health",
-        "operationId": "model_health_api_v1_health_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HealthCheckResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/kyc/verify": {
-      "post": {
-        "tags": [
-          "KYC"
-        ],
-        "summary": "Verify identity",
-        "description": "Face detection + face match + OCR on an ID document and a selfie.",
-        "operationId": "verify_kyc_api_v1_kyc_verify_post",
-        "requestBody": {
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "$ref": "#/components/schemas/Body_verify_kyc_api_v1_kyc_verify_post"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/KYCVerificationResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/kyc/ocr": {
-      "post": {
-        "tags": [
-          "KYC"
-        ],
-        "summary": "Extract document fields",
-        "operationId": "extract_ocr_api_v1_kyc_ocr_post",
-        "requestBody": {
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "$ref": "#/components/schemas/Body_extract_ocr_api_v1_kyc_ocr_post"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OCROnlyResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/kyc/liveness/challenge": {
-      "get": {
-        "tags": [
-          "KYC"
-        ],
-        "summary": "Create a liveness challenge",
-        "operationId": "generate_challenge_api_v1_kyc_liveness_challenge_get",
-        "parameters": [
-          {
-            "name": "types",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Comma-separated challenge types, e.g. turn_left,turn_right",
-              "title": "Types"
-            },
-            "description": "Comma-separated challenge types, e.g. turn_left,turn_right"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ChallengeResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/kyc/liveness/verify": {
-      "post": {
-        "tags": [
-          "KYC"
-        ],
-        "summary": "Verify a liveness challenge",
-        "operationId": "verify_liveness_api_v1_kyc_liveness_verify_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/LivenessVerificationRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LivenessVerificationResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/kyc/liveness/detect": {
-      "post": {
-        "tags": [
-          "KYC"
-        ],
-        "summary": "Batch liveness detection",
-        "operationId": "detect_liveness_api_v1_kyc_liveness_detect_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/LivenessBatchRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LivenessBatchResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Service Unavailable",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/aml/health": {
       "get": {
         "tags": [
@@ -472,18 +69,143 @@
         }
       }
     },
-    "/api/v1/ocr/extract": {
+    "/health": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Liveness probe",
+        "description": "Process is up. Used by Kubernetes liveness probes.",
+        "operationId": "liveness_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ready": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Readiness probe",
+        "description": "Models are loaded. Used by Kubernetes readiness probes.",
+        "operationId": "readiness_ready_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/health": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Health Check",
+        "description": "Health check endpoint with model status.",
+        "operationId": "health_check_api_v1_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthCheckResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/kyc/verify": {
       "post": {
         "tags": [
           "KYC"
         ],
-        "summary": "Extract document fields (legacy path)",
-        "operationId": "extract_ocr_legacy_api_v1_ocr_extract_post",
+        "summary": "Verify Kyc",
+        "description": "Complete KYC verification: face detection + matching + OCR.",
+        "operationId": "verify_kyc_api_v1_kyc_verify_post",
         "requestBody": {
           "content": {
             "multipart/form-data": {
               "schema": {
-                "$ref": "#/components/schemas/Body_extract_ocr_legacy_api_v1_ocr_extract_post"
+                "$ref": "#/components/schemas/Body_verify_kyc_api_v1_kyc_verify_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KYCVerificationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/kyc/ocr": {
+      "post": {
+        "tags": [
+          "KYC"
+        ],
+        "summary": "Extract Ocr",
+        "description": "OCR-only endpoint: Extract text from document without face verification.",
+        "operationId": "extract_ocr_api_v1_kyc_ocr_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_extract_ocr_api_v1_kyc_ocr_post"
               }
             }
           },
@@ -520,8 +242,60 @@
               }
             }
           },
-          "503": {
-            "description": "Service Unavailable",
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ocr/extract": {
+      "post": {
+        "tags": [
+          "OCR"
+        ],
+        "summary": "Extract Ocr",
+        "description": "OCR-only endpoint: Extract text from document without face verification.",
+        "operationId": "extract_ocr_api_v1_ocr_extract_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_extract_ocr_api_v1_ocr_extract_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OCROnlyResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
             "content": {
               "application/json": {
                 "schema": {
@@ -543,12 +317,65 @@
         }
       }
     },
-    "/api/v1/liveness/challenge": {
+    "/api/v1/kyc/liveness/challenge": {
       "get": {
         "tags": [
           "KYC"
         ],
-        "summary": "Create a liveness challenge (legacy path)",
+        "summary": "Generate Challenge",
+        "description": "Generate a new liveness challenge.\nReturns a challenge that the user must complete (blink, turn left, turn right).\nPass types=turn_left,turn_right to request a left-then-right head turn.",
+        "operationId": "generate_challenge_api_v1_kyc_liveness_challenge_get",
+        "parameters": [
+          {
+            "name": "types",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated challenge types, e.g. turn_left,turn_right",
+              "title": "Types"
+            },
+            "description": "Comma-separated challenge types, e.g. turn_left,turn_right"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChallengeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/liveness/challenge": {
+      "get": {
+        "tags": [
+          "Liveness"
+        ],
+        "summary": "Generate Challenge",
+        "description": "Generate a new liveness challenge.\nReturns a challenge that the user must complete (blink, turn left, turn right).\nPass types=turn_left,turn_right to request a left-then-right head turn.",
         "operationId": "generate_challenge_api_v1_liveness_challenge_get",
         "parameters": [
           {
@@ -575,7 +402,71 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ChallengeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/kyc/liveness/verify": {
+      "post": {
+        "tags": [
+          "KYC"
+        ],
+        "summary": "Verify Liveness Challenge",
+        "description": "Verify a liveness challenge with captured frames.\nProcesses frames and validates against the challenge requirements.",
+        "operationId": "verify_liveness_challenge_api_v1_kyc_liveness_verify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LivenessVerificationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LivenessVerificationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           },
@@ -595,10 +486,11 @@
     "/api/v1/liveness/verify": {
       "post": {
         "tags": [
-          "KYC"
+          "Liveness"
         ],
-        "summary": "Verify a liveness challenge (legacy path)",
-        "operationId": "verify_liveness_api_v1_liveness_verify_post",
+        "summary": "Verify Liveness Challenge",
+        "description": "Verify a liveness challenge with captured frames.\nProcesses frames and validates against the challenge requirements.",
+        "operationId": "verify_liveness_challenge_api_v1_liveness_verify_post",
         "requestBody": {
           "content": {
             "application/json": {
@@ -614,7 +506,91 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LivenessVerificationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/kyc/liveness/detect": {
+      "post": {
+        "tags": [
+          "KYC"
+        ],
+        "summary": "Detect Liveness Batch",
+        "description": "Perform batch liveness detection without challenge.\nUseful for continuous detection or testing.",
+        "operationId": "detect_liveness_batch_api_v1_kyc_liveness_detect_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LivenessBatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LivenessBatchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           },
@@ -634,10 +610,11 @@
     "/api/v1/liveness/detect": {
       "post": {
         "tags": [
-          "KYC"
+          "Liveness"
         ],
-        "summary": "Batch liveness detection (legacy path)",
-        "operationId": "detect_liveness_api_v1_liveness_detect_post",
+        "summary": "Detect Liveness Batch",
+        "description": "Perform batch liveness detection without challenge.\nUseful for continuous detection or testing.",
+        "operationId": "detect_liveness_batch_api_v1_liveness_detect_post",
         "requestBody": {
           "content": {
             "application/json": {
@@ -653,7 +630,29 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/LivenessBatchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           },
@@ -813,7 +812,7 @@
             "type": "string",
             "format": "binary",
             "title": "Document",
-            "description": "Document image for OCR"
+            "description": "Document image for OCR extraction"
           }
         },
         "type": "object",
@@ -822,20 +821,20 @@
         ],
         "title": "Body_extract_ocr_api_v1_kyc_ocr_post"
       },
-      "Body_extract_ocr_legacy_api_v1_ocr_extract_post": {
+      "Body_extract_ocr_api_v1_ocr_extract_post": {
         "properties": {
           "document": {
             "type": "string",
             "format": "binary",
             "title": "Document",
-            "description": "Document image for OCR"
+            "description": "Document image for OCR extraction"
           }
         },
         "type": "object",
         "required": [
           "document"
         ],
-        "title": "Body_extract_ocr_legacy_api_v1_ocr_extract_post"
+        "title": "Body_extract_ocr_api_v1_ocr_extract_post"
       },
       "Body_verify_kyc_api_v1_kyc_verify_post": {
         "properties": {
@@ -843,7 +842,7 @@
             "type": "string",
             "format": "binary",
             "title": "Id Document",
-            "description": "ID card or passport image"
+            "description": "ID card/passport image"
           },
           "selfie_image": {
             "type": "string",
@@ -863,11 +862,13 @@
         "properties": {
           "challenge_id": {
             "type": "string",
-            "title": "Challenge Id"
+            "title": "Challenge Id",
+            "description": "Unique challenge identifier"
           },
           "multi_challenge": {
             "type": "boolean",
             "title": "Multi Challenge",
+            "description": "Whether this is a multi-challenge session",
             "default": false
           },
           "challenge_type": {
@@ -878,7 +879,8 @@
               {
                 "type": "null"
               }
-            ]
+            ],
+            "description": "Type of challenge (single mode)"
           },
           "question": {
             "anyOf": [
@@ -889,7 +891,8 @@
                 "type": "null"
               }
             ],
-            "title": "Question"
+            "title": "Question",
+            "description": "Challenge question text (single mode)"
           },
           "instruction": {
             "anyOf": [
@@ -900,7 +903,8 @@
                 "type": "null"
               }
             ],
-            "title": "Instruction"
+            "title": "Instruction",
+            "description": "User-friendly instruction (single mode)"
           },
           "challenge_types": {
             "anyOf": [
@@ -914,7 +918,8 @@
                 "type": "null"
               }
             ],
-            "title": "Challenge Types"
+            "title": "Challenge Types",
+            "description": "List of challenge types (multi mode)"
           },
           "questions": {
             "anyOf": [
@@ -928,7 +933,8 @@
                 "type": "null"
               }
             ],
-            "title": "Questions"
+            "title": "Questions",
+            "description": "List of challenge questions (multi mode)"
           },
           "instructions": {
             "anyOf": [
@@ -942,30 +948,28 @@
                 "type": "null"
               }
             ],
-            "title": "Instructions"
+            "title": "Instructions",
+            "description": "List of user-friendly instructions (multi mode)"
           },
           "timestamp": {
             "type": "number",
-            "title": "Timestamp"
+            "title": "Timestamp",
+            "description": "Challenge creation timestamp"
           },
           "expires_at": {
             "type": "number",
-            "title": "Expires At"
+            "title": "Expires At",
+            "description": "Challenge expiration timestamp"
           },
           "nonce": {
             "type": "string",
-            "title": "Nonce"
+            "title": "Nonce",
+            "description": "Nonce for replay protection"
           },
           "signature": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Signature"
+            "type": "string",
+            "title": "Signature",
+            "description": "HMAC signature for challenge integrity"
           }
         },
         "type": "object",
@@ -973,9 +977,31 @@
           "challenge_id",
           "timestamp",
           "expires_at",
-          "nonce"
+          "nonce",
+          "signature"
         ],
-        "title": "ChallengeResponse"
+        "title": "ChallengeResponse",
+        "description": "Liveness challenge generation response (supports single or multi-challenge).",
+        "example": {
+          "challenge_id": "550e8400-e29b-41d4-a716-446655440000",
+          "challenge_types": [
+            "blink",
+            "turn_left"
+          ],
+          "expires_at": 1697022630.0,
+          "instructions": [
+            "Blink your eyes once",
+            "Turn your face to the left"
+          ],
+          "multi_challenge": true,
+          "nonce": "a1b2c3d4e5f6",
+          "questions": [
+            "blink eyes",
+            "turn face left"
+          ],
+          "signature": "abc123...",
+          "timestamp": 1697022600.0
+        }
       },
       "ChallengeStatus": {
         "type": "string",
@@ -986,7 +1012,8 @@
           "expired",
           "invalid"
         ],
-        "title": "ChallengeStatus"
+        "title": "ChallengeStatus",
+        "description": "Challenge validation status."
       },
       "ChallengeType": {
         "type": "string",
@@ -995,7 +1022,8 @@
           "turn_left",
           "turn_right"
         ],
-        "title": "ChallengeType"
+        "title": "ChallengeType",
+        "description": "Types of liveness challenges."
       },
       "ErrorResponse": {
         "properties": {
@@ -1032,6 +1060,7 @@
           "message"
         ],
         "title": "ErrorResponse",
+        "description": "Standard error response.",
         "example": {
           "details": {
             "confidence_threshold": 0.6
@@ -1075,7 +1104,8 @@
           "threshold_used",
           "message"
         ],
-        "title": "FaceMatchData"
+        "title": "FaceMatchData",
+        "description": "Face matching verification result."
       },
       "HTTPValidationError": {
         "properties": {
@@ -1095,7 +1125,7 @@
           "status": {
             "type": "string",
             "title": "Status",
-            "description": "healthy | degraded | unhealthy"
+            "description": "Overall service status: healthy|degraded|unhealthy"
           },
           "version": {
             "type": "string",
@@ -1120,31 +1150,64 @@
           "version",
           "models"
         ],
-        "title": "HealthCheckResponse"
+        "title": "HealthCheckResponse",
+        "description": "Health check response with model status.",
+        "example": {
+          "models": {
+            "face_detector": {
+              "loaded": true,
+              "name": "yunet"
+            },
+            "face_matcher": {
+              "loaded": true,
+              "name": "insightface"
+            },
+            "ocr_extractor": {
+              "loaded": true,
+              "name": "paddleocr"
+            }
+          },
+          "status": "healthy",
+          "timestamp": "2024-10-11T10:30:00Z",
+          "version": "1.0.0"
+        }
       },
       "KYCVerificationResponse": {
         "properties": {
           "verification_status": {
-            "$ref": "#/components/schemas/VerificationStatus"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VerificationStatus"
+              }
+            ],
+            "description": "Overall verification status"
           },
           "confidence_score": {
             "type": "number",
             "maximum": 1.0,
             "minimum": 0.0,
-            "title": "Confidence Score"
+            "title": "Confidence Score",
+            "description": "Overall confidence (weighted: 60% face + 40% OCR)"
           },
           "face_match_score": {
             "type": "number",
             "maximum": 1.0,
             "minimum": 0.0,
-            "title": "Face Match Score"
+            "title": "Face Match Score",
+            "description": "Face matching confidence (0-1)"
           },
           "ocr_data": {
-            "$ref": "#/components/schemas/OCRData"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OCRData"
+              }
+            ],
+            "description": "OCR extraction results"
           },
           "processing_time_ms": {
             "type": "integer",
-            "title": "Processing Time Ms"
+            "title": "Processing Time Ms",
+            "description": "Total processing time in milliseconds"
           },
           "timestamp": {
             "type": "string",
@@ -1181,20 +1244,49 @@
           "ocr_data",
           "processing_time_ms"
         ],
-        "title": "KYCVerificationResponse"
+        "title": "KYCVerificationResponse",
+        "description": "Main KYC verification response - FIXED for Ballerine frontend.\nAdded confidence_score as top-level field (required by frontend).",
+        "example": {
+          "confidence_score": 0.89,
+          "face_match_score": 0.87,
+          "face_verification_details": {
+            "confidence": 0.87,
+            "message": "Faces match (85.0% similarity)",
+            "similarity_metrics": {
+              "cosine_similarity": 0.85,
+              "euclidean_distance": 0.42
+            },
+            "threshold_used": 0.4,
+            "verified": true
+          },
+          "ocr_data": {
+            "confidence": 0.92,
+            "document_type": "national_id",
+            "extracted_text": "Full name: John Doe | DOB: 01/01/1990",
+            "fields": {
+              "date_of_birth": "01/01/1990",
+              "document_number": "ABC123456",
+              "full_name": "John Doe",
+              "nationality": "German"
+            }
+          },
+          "processing_time_ms": 2500,
+          "timestamp": "2024-10-11T10:30:00Z",
+          "verification_status": "approved"
+        }
       },
       "LivenessBatchRequest": {
         "properties": {
           "frames": {
-            "items": {
-              "type": "string"
-            },
+            "items": {},
             "type": "array",
-            "title": "Frames"
+            "title": "Frames",
+            "description": "Base64-encoded image frames (list of strings)"
           },
           "initial_blink_count": {
             "type": "integer",
             "title": "Initial Blink Count",
+            "description": "Initial blink count for tracking",
             "default": 0
           }
         },
@@ -1202,39 +1294,54 @@
         "required": [
           "frames"
         ],
-        "title": "LivenessBatchRequest"
+        "title": "LivenessBatchRequest",
+        "description": "Request for batch liveness detection (without challenge).",
+        "example": {
+          "frames": [
+            "data:image/jpeg;base64,/9j/4AAQ...",
+            "data:image/jpeg;base64,/9j/4AAQ..."
+          ],
+          "initial_blink_count": 0
+        }
       },
       "LivenessBatchResponse": {
         "properties": {
           "total_blinks": {
             "type": "integer",
-            "title": "Total Blinks"
+            "title": "Total Blinks",
+            "description": "Total new blinks detected in batch"
           },
           "final_blink_count": {
             "type": "integer",
-            "title": "Final Blink Count"
+            "title": "Final Blink Count",
+            "description": "Final cumulative blink count"
           },
           "orientations": {
             "items": {},
             "type": "array",
-            "title": "Orientations"
+            "title": "Orientations",
+            "description": "Detected orientations per frame"
           },
           "face_detection_ratio": {
             "type": "number",
-            "title": "Face Detection Ratio"
+            "title": "Face Detection Ratio",
+            "description": "Ratio of frames with face detected"
           },
           "results": {
             "items": {},
             "type": "array",
-            "title": "Results"
+            "title": "Results",
+            "description": "Per-frame detection results"
           },
           "frame_count": {
             "type": "integer",
-            "title": "Frame Count"
+            "title": "Frame Count",
+            "description": "Number of frames processed"
           },
           "processing_time_ms": {
             "type": "integer",
-            "title": "Processing Time Ms"
+            "title": "Processing Time Ms",
+            "description": "Processing time in milliseconds"
           },
           "timestamp": {
             "type": "string",
@@ -1252,21 +1359,35 @@
           "frame_count",
           "processing_time_ms"
         ],
-        "title": "LivenessBatchResponse"
+        "title": "LivenessBatchResponse",
+        "description": "Batch liveness detection response.",
+        "example": {
+          "face_detection_ratio": 0.85,
+          "final_blink_count": 2,
+          "frame_count": 30,
+          "orientations": [
+            null,
+            null,
+            "left"
+          ],
+          "processing_time_ms": 1200,
+          "results": [],
+          "timestamp": "2024-10-11T10:30:00Z",
+          "total_blinks": 2
+        }
       },
       "LivenessVerificationRequest": {
         "properties": {
           "challenge_id": {
             "type": "string",
-            "title": "Challenge Id"
+            "title": "Challenge Id",
+            "description": "Challenge ID to verify"
           },
           "frames": {
-            "items": {
-              "type": "string"
-            },
+            "items": {},
             "type": "array",
             "title": "Frames",
-            "description": "Base64-encoded image frames"
+            "description": "Base64-encoded image frames (list of strings)"
           }
         },
         "type": "object",
@@ -1274,28 +1395,45 @@
           "challenge_id",
           "frames"
         ],
-        "title": "LivenessVerificationRequest"
+        "title": "LivenessVerificationRequest",
+        "description": "Request to verify liveness challenge.",
+        "example": {
+          "challenge_id": "550e8400-e29b-41d4-a716-446655440000",
+          "frames": [
+            "data:image/jpeg;base64,/9j/4AAQ...",
+            "data:image/jpeg;base64,/9j/4AAQ..."
+          ]
+        }
       },
       "LivenessVerificationResponse": {
         "properties": {
           "challenge_id": {
             "type": "string",
-            "title": "Challenge Id"
+            "title": "Challenge Id",
+            "description": "Challenge ID that was verified"
           },
           "status": {
-            "$ref": "#/components/schemas/ChallengeStatus"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChallengeStatus"
+              }
+            ],
+            "description": "Verification status"
           },
           "message": {
             "type": "string",
-            "title": "Message"
+            "title": "Message",
+            "description": "Human-readable result message"
           },
           "detection_results": {
             "type": "object",
-            "title": "Detection Results"
+            "title": "Detection Results",
+            "description": "Detailed detection results"
           },
           "processing_time_ms": {
             "type": "integer",
-            "title": "Processing Time Ms"
+            "title": "Processing Time Ms",
+            "description": "Processing time in milliseconds"
           },
           "timestamp": {
             "type": "string",
@@ -1311,7 +1449,25 @@
           "detection_results",
           "processing_time_ms"
         ],
-        "title": "LivenessVerificationResponse"
+        "title": "LivenessVerificationResponse",
+        "description": "Liveness challenge verification response.",
+        "example": {
+          "challenge_id": "550e8400-e29b-41d4-a716-446655440000",
+          "detection_results": {
+            "blinks": 2,
+            "face_detected": true,
+            "orientation": "left",
+            "orientations": [
+              "left",
+              "left",
+              null
+            ]
+          },
+          "message": "All challenges completed: blink, turn left",
+          "processing_time_ms": 1250,
+          "status": "pass",
+          "timestamp": "2024-10-11T10:30:00Z"
+        }
       },
       "ModelStatus": {
         "properties": {
@@ -1340,7 +1496,8 @@
           "loaded",
           "name"
         ],
-        "title": "ModelStatus"
+        "title": "ModelStatus",
+        "description": "Individual model status."
       },
       "OCRData": {
         "properties": {
@@ -1377,7 +1534,8 @@
           "extracted_text",
           "fields"
         ],
-        "title": "OCRData"
+        "title": "OCRData",
+        "description": "OCR extraction result."
       },
       "OCRFields": {
         "properties": {
@@ -1482,7 +1640,8 @@
           }
         },
         "type": "object",
-        "title": "OCRFields"
+        "title": "OCRFields",
+        "description": "Structured fields extracted from ID document."
       },
       "OCROnlyResponse": {
         "properties": {
@@ -1504,7 +1663,21 @@
           "ocr_data",
           "processing_time_ms"
         ],
-        "title": "OCROnlyResponse"
+        "title": "OCROnlyResponse",
+        "description": "Response for OCR-only endpoint.",
+        "example": {
+          "ocr_data": {
+            "confidence": 0.88,
+            "document_type": "drivers_license",
+            "extracted_text": "Name: Jane Smith | DOB: 15/03/1985",
+            "fields": {
+              "date_of_birth": "15/03/1985",
+              "full_name": "Jane Smith"
+            }
+          },
+          "processing_time_ms": 3200,
+          "timestamp": "2024-10-11T10:30:00Z"
+        }
       },
       "SimilarityMetrics": {
         "properties": {
@@ -1525,7 +1698,8 @@
           "cosine_similarity",
           "euclidean_distance"
         ],
-        "title": "SimilarityMetrics"
+        "title": "SimilarityMetrics",
+        "description": "Face similarity metrics."
       },
       "ValidationError": {
         "properties": {
@@ -1568,7 +1742,8 @@
           "pending",
           "error"
         ],
-        "title": "VerificationStatus"
+        "title": "VerificationStatus",
+        "description": "Verification status for KYC workflow."
       }
     }
   },
@@ -1579,7 +1754,15 @@
     },
     {
       "name": "KYC",
-      "description": "Identity verification: face match, document OCR, and liveness."
+      "description": "Identity verification: face match, document OCR."
+    },
+    {
+      "name": "OCR",
+      "description": "Document field extraction."
+    },
+    {
+      "name": "Liveness",
+      "description": "Challenge-response liveness."
     },
     {
       "name": "AML",

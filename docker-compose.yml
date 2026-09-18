@@ -10,10 +10,11 @@ services:
       PORT: "8000"
       MAX_UPLOAD_SIZE_MB: "10"
     volumes:
-      - ./main.py:/app/main.py
       - ./api:/app/api
-      - ./core:/app/core
-      - ./domains:/app/domains
+      - ./aml:/app/aml
+      - ./app:/app/app
+      - ./configs:/app/configs
+      - ./utils:/app/utils
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
       interval: 30s

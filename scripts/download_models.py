@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Provision the ML weights the service needs.
 
-Small weights are committed under vendor/kyc. The InsightFace pack is not: at
+Small weights are committed under models/. The InsightFace pack is not: at
 166 MB it exceeds GitHub's 100 MB per-file limit, so it is published as a release
 asset on this repo and fetched here, verified against a pinned SHA-256.
 
@@ -27,8 +27,8 @@ import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-KYC_ROOT = ROOT / "vendor" / "kyc"
-sys.path[:0] = [str(ROOT), str(KYC_ROOT)]
+KYC_ROOT = ROOT
+sys.path[:0] = [str(ROOT)]
 
 WEIGHTS_REPO = os.environ.get("AI_API_WEIGHTS_REPO", "finetech-nexus/ai-api")
 WEIGHTS_TAG = os.environ.get("AI_API_WEIGHTS_TAG", "weights-v1")
@@ -59,8 +59,8 @@ def sha256(path: Path) -> str:
 def insightface_dir() -> Path:
     """Where FaceAnalysis(root=...) looks: <root>/models/<pack>.
 
-    Matches paths.insightface_root in vendor/kyc/configs/defaults.yaml, resolved
-    against vendor/kyc rather than $HOME. Kept here so this script does not have
+    Matches paths.insightface_root in configs/defaults.yaml, resolved against
+    this service root rather than $HOME. Kept here so this script does not have
     to import configs.config (yaml, pydantic) just to fetch files.
     """
     return KYC_ROOT / "insightface" / "models" / INSIGHTFACE_PACK
@@ -76,7 +76,7 @@ def _urlopen(url, headers):
             "  If the weights release does not exist yet, publish it with:\n"
             "    gh release create {} --repo {} \\\n"
             "      --title 'InsightFace {} (trimmed)' \\\n"
-            "      vendor/kyc/insightface/models/{}/*.onnx\n"
+            "      insightface/models/{}/*.onnx\n"
             "  A private repo cannot serve this URL: mirror the pack and set "
             "AI_API_WEIGHTS_BASE_URL.".format(
                 exc.code, exc.reason, url,
@@ -122,7 +122,7 @@ def _download(url, target: Path, expected: str) -> None:
 
 
 def fetch_yunet() -> None:
-    """Committed under vendor/kyc/models; fetch only if somehow absent."""
+    """Committed under models/; fetch only if somehow absent."""
     models_dir = KYC_ROOT / "models"
     models_dir.mkdir(parents=True, exist_ok=True)
     target = models_dir / "yunet.onnx"

@@ -14,7 +14,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Root of this vendored engine (the directory holding models/, logs/, temp/).
+# Root of this service (the directory holding models/, logs/, temp/).
 KYC_ROOT = Path(__file__).resolve().parent.parent
 
 

@@ -1,8 +1,9 @@
-# Use Python 3.9 — InsightFace / MediaPipe / PaddleOCR compatible
+# Same base as ./kyc/Dockerfile.ml-backend (Python 3.9, PaddleOCR, MediaPipe).
 FROM python:3.9-slim
 
 WORKDIR /app
 
+# System deps from kyc, plus wget for model fetch during the image build.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 \
     libglib2.0-0 \
@@ -34,24 +35,28 @@ RUN find /usr/local/lib/python3.9/site-packages/onnxruntime -name "*.so" \
         -exec patchelf --clear-execstack {} \; \
     && python -c "import yaml, cv2, insightface, onnxruntime, paddleocr, mediapipe"
 
-COPY main.py ./
 COPY api ./api
-COPY core ./core
-COPY domains ./domains
-COPY vendor ./vendor
+COPY aml ./aml
+COPY app ./app
+COPY configs ./configs
+COPY utils ./utils
+COPY models ./models
 COPY scripts ./scripts
 
-ENV PYTHONPATH=/app:/app/vendor/kyc
+ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 ENV PORT=8000
 
-# Fetch InsightFace on every platform. Construct the models only when the
-# build is native: PaddleOCR SIGSEGVs under QEMU (the previous
-# linux/amd64,linux/arm64-on-x86 path died with "qemu: uncaught target
-# signal 11" while loading PP-LCNet).
+# Same idea as kyc/Dockerfile.ml-backend: fetch YuNet during the image build.
+# InsightFace's recognition weights exceed GitHub's 100 MB git limit, so they
+# come from this repo's public weights-v1 release (see scripts/download_models.py).
 ARG TARGETARCH
 ARG BUILDARCH
-RUN mkdir -p /app/vendor/kyc/logs /app/vendor/kyc/temp \
+RUN mkdir -p /app/models /app/logs /app/temp \
+    && if [ ! -f /app/models/yunet.onnx ]; then \
+         wget -O /app/models/yunet.onnx \
+           https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx; \
+       fi \
     && python scripts/download_models.py \
     && if [ "$TARGETARCH" = "$BUILDARCH" ]; then \
          python scripts/download_models.py --all; \
@@ -64,4 +69,4 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=90s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"
 
-CMD ["sh", "-c", "python -m uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+CMD ["sh", "-c", "python -m uvicorn api.api:app --host 0.0.0.0 --port ${PORT:-8000}"]

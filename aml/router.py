@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, status
 
-from domains.aml.schemas import (
+from aml.schemas import (
     AmlHealthResponse,
     AmlScreenRequest,
     AmlScreenResponse,

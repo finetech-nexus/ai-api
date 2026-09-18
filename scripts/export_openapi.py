@@ -11,7 +11,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from main import app  # noqa: E402
+from api.api import app  # noqa: E402
 
 
 def main() -> None:

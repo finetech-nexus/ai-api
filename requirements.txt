@@ -1,37 +1,28 @@
-# Nexus Bank AI API
-# Python 3.9 — InsightFace / MediaPipe / PaddleOCR compatible
+# Same stack as ./kyc/requirements.txt (Python 3.9, InsightFace, PaddleOCR, MediaPipe).
+# Divergences from kyc are the ones that make a multi-arch image installable:
+#   - no torch: nothing here imports it, and there is no torch==*+cpu wheel for aarch64
+#   - PyYAML==6.0.2: paddlex (pulled in by paddleocr 3.4.x) pins exactly that
+#   - paddlepaddle/paddleocr pinned: kyc used floating ranges; 3.2.2 / 3.4.1 are
+#     the newest with cp39 wheels for both manylinux x86_64 and aarch64
 
-# --- API ---
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
 python-multipart==0.0.6
 pydantic==2.5.0
 pydantic-settings==2.1.0
-# Exactly 6.0.2: paddlex (pulled in by paddleocr 3.4.x) pins PyYAML==6.0.2, so
-# any other value makes the whole install unresolvable.
+Pillow==10.1.0
+numpy==1.26.2
+opencv-python-headless==4.8.1.78
+
+insightface==0.7.3
+onnxruntime==1.12.1
+paddlepaddle==3.2.2
+paddleocr==3.4.1
+
 PyYAML==6.0.2
 python-dotenv==1.0.0
 aiofiles==23.2.1
 
-# --- Vision ---
-Pillow==10.1.0
-numpy==1.26.2
-opencv-python-headless==4.8.1.78
-# No torch: nothing here imports it. Inference runs on onnxruntime (YuNet,
-# InsightFace) and paddle (OCR). It also has no torch==*+cpu wheel for aarch64,
-# so keeping it would break the arm64 image.
-
-# --- KYC models ---
-insightface==0.7.3
-onnxruntime==1.12.1
-# Pinned: PaddleOCR moved its weight cache between 2.x (~/.paddleocr) and 3.x
-# (~/.paddlex), so a floating range can relocate it and change the API surface.
-# paddlepaddle 3.2.2 is the newest with cp39 wheels for both manylinux x86_64 and
-# aarch64, so images build on arm64 laptops as well as x86 CI.
-paddlepaddle==3.2.2
-paddleocr==3.4.1
-
-# Liveness
 protobuf>=3.20.0,<4.0.0
 mediapipe==0.10.9
 imutils==0.5.4
