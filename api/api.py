@@ -689,22 +689,89 @@ def decode_base64_image(base64_str: str) -> np.ndarray:
         )
 
 
+async def read_ocr_image(request: Request):
+    """Accept JSON `{document: base64}` or multipart field `document` (string or file)."""
+    content_type = (request.headers.get("content-type") or "").lower()
+    if "application/json" in content_type:
+        try:
+            body = await request.json()
+        except Exception:
+            body = None
+        raw = None
+        if isinstance(body, dict):
+            raw = body.get("document") or body.get("image")
+        if not isinstance(raw, str) or not raw.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="document image is required",
+            )
+        logger.info("OCR JSON request received (%s chars)", len(raw))
+        return decode_base64_image(raw)
+
+    form = await request.form()
+    item = form.get("document") or form.get("image")
+    if item is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="document image is required",
+        )
+    if isinstance(item, str) and item.strip():
+        logger.info("OCR form-data string received (%s chars)", len(item))
+        return decode_base64_image(item)
+    if hasattr(item, "read"):
+        logger.info("OCR multipart file received")
+        return await read_upload_file(item)
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="document image is required",
+    )
+
+
 @app.post(
     "/api/v1/ocr/extract",
     response_model=OCROnlyResponse,
     responses={400: {"model": ErrorResponse}, 500: {"model": ErrorResponse}},
     tags=["OCR"],
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "content": {
+                "application/json": {"schema": OCRRequest.model_json_schema()},
+                "multipart/form-data": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {"document": {"type": "string"}},
+                        "required": ["document"],
+                    }
+                },
+            },
+        }
+    },
 )
 @app.post(
     "/api/v1/kyc/ocr",
     response_model=OCROnlyResponse,
     responses={400: {"model": ErrorResponse}, 500: {"model": ErrorResponse}},
     tags=["KYC"],
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "content": {
+                "application/json": {"schema": OCRRequest.model_json_schema()},
+                "multipart/form-data": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {"document": {"type": "string"}},
+                        "required": ["document"],
+                    }
+                },
+            },
+        }
+    },
 )
-async def extract_ocr(payload: OCRRequest):
-    """OCR from a JSON base64 document image (mobile scan and file clients)."""
-    logger.info("OCR JSON request received (%s chars)", len(payload.document or ""))
-    return await run_ocr(decode_base64_image(payload.document))
+async def extract_ocr(request: Request):
+    """OCR from JSON base64 or multipart form field `document`."""
+    return await run_ocr(await read_ocr_image(request))
 
 
 @app.get(

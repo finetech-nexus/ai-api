@@ -38,4 +38,15 @@ def test_kyc_ocr_accepts_json_document(client):
     assert response.status_code != 422
     detail = str(response.json())
     assert "UploadFile" not in detail
-    assert "Expected UploadFile" not in detail
+    assert "valid dictionary" not in detail
+
+
+def test_kyc_ocr_accepts_form_document(client):
+    response = client.post(
+        "/api/v1/kyc/ocr",
+        data={"document": "data:image/jpeg;base64,QQ=="},
+    )
+    assert response.status_code != 422
+    detail = str(response.json())
+    assert "UploadFile" not in detail
+    assert "valid dictionary" not in detail
