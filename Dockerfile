@@ -1,12 +1,7 @@
-# Same base as ./kyc/Dockerfile.ml-backend
-# Python 3.9, PaddleOCR, MediaPipe.
 FROM python:3.9-slim
 
 WORKDIR /app
 
-# ---------------------------------------------------------------------------
-# System dependencies
-# ---------------------------------------------------------------------------
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 \
     libglib2.0-0 \
@@ -21,32 +16,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# ---------------------------------------------------------------------------
-# patchelf >= 0.18
-# ---------------------------------------------------------------------------
-RUN set -eux; \
-    arch="$(uname -m)"; \
-    case "$arch" in \
-        x86_64) \
-            patchelf_arch="x86_64" \
-            ;; \
-        aarch64) \
-            patchelf_arch="aarch64" \
-            ;; \
-        *) \
-            echo "Unsupported architecture: ${arch}"; \
-            exit 1 \
-            ;; \
-    esac; \
-    wget -qO /tmp/patchelf.tgz \
-      "https://github.com/NixOS/patchelf/releases/download/0.18.0/patchelf-0.18.0-${patchelf_arch}.tar.gz"; \
-    tar -C /usr/local -xzf /tmp/patchelf.tgz; \
-    rm -f /tmp/patchelf.tgz; \
-    patchelf --version
-
-# ---------------------------------------------------------------------------
-# Python dependencies
-# ---------------------------------------------------------------------------
 COPY requirements.txt .
 
 RUN pip install --upgrade \
@@ -58,20 +27,13 @@ RUN pip install --upgrade \
         --timeout=300 \
         -r requirements.txt
 
-# ---------------------------------------------------------------------------
-# ONNX Runtime executable-stack workaround
-# ---------------------------------------------------------------------------
-RUN set -eux; \
-    ORT_DIR="/usr/local/lib/python3.9/site-packages/onnxruntime"; \
-    if [ -d "$ORT_DIR" ]; then \
-        find "$ORT_DIR" \
-            -name "*.so" \
-            -exec patchelf --clear-execstack {} \; \
-    fi
+RUN python -c "import onnxruntime; print('ONNX Runtime:', onnxruntime.__version__)"
+RUN python -c "import cv2; print('OpenCV:', cv2.__version__)"
+RUN python -c "import insightface; print('InsightFace OK')"
+RUN python -c "import paddle; print('Paddle:', paddle.__version__)"
+RUN python -c "import paddleocr; print('PaddleOCR OK')"
+RUN python -c "import mediapipe; print('MediaPipe OK')"
 
-# ---------------------------------------------------------------------------
-# Copy application
-# ---------------------------------------------------------------------------
 COPY api ./api
 COPY aml ./aml
 COPY app ./app
@@ -84,70 +46,34 @@ ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 ENV PORT=8000
 
-# ---------------------------------------------------------------------------
-# Build architecture information
-# ---------------------------------------------------------------------------
 ARG TARGETARCH
 ARG BUILDARCH
 
 RUN echo "BUILDARCH=${BUILDARCH}" && \
     echo "TARGETARCH=${TARGETARCH}" && \
-    uname -m && \
-    python -c "import platform; print('Python architecture:', platform.machine())"
+    uname -m
 
-# ---------------------------------------------------------------------------
-# Model directories
-# ---------------------------------------------------------------------------
 RUN mkdir -p \
     /app/models \
     /app/insightface/models/buffalo_l \
     /app/logs \
     /app/temp
 
-# ---------------------------------------------------------------------------
-# Download static model weights.
-#
-# IMPORTANT:
-# This does NOT initialize PaddleOCR, MediaPipe, InsightFace, etc.
-# Therefore ARM64 builds don't execute the native ML stack under BuildKit/QEMU.
-# ---------------------------------------------------------------------------
-RUN set -eux; \
-    python scripts/download_models.py
+# Download weights only. No native ML initialization.
+RUN python scripts/download_models.py
 
-# ---------------------------------------------------------------------------
-# Native model warm-up
-#
-# Only perform this when the build architecture and target architecture match.
-#
-# ARM64:
-#   Download weights only.
-#   Do NOT execute the native ML runtimes during docker build.
-#
-# AMD64 native:
-#   Warm all models and fail the image build if one cannot initialize.
-# ---------------------------------------------------------------------------
-RUN set -eux; \
-    if [ "${TARGETARCH}" = "${BUILDARCH}" ] && [ "${TARGETARCH}" = "amd64" ]; then \
-        echo "Native AMD64 build: warming all ML models"; \
+# Only warm models on native AMD64.
+RUN if [ "${TARGETARCH}" = "${BUILDARCH}" ] && [ "${TARGETARCH}" = "amd64" ]; then \
+        echo "Native AMD64: warming models"; \
         python scripts/download_models.py --warm; \
     else \
-        echo "Skipping ML warm-up for ${BUILDARCH} -> ${TARGETARCH}"; \
-        echo "Models were downloaded successfully."; \
+        echo "Skipping build-time ML warm-up for ${BUILDARCH} -> ${TARGETARCH}"; \
     fi
 
-# ---------------------------------------------------------------------------
-# Verify model files exist
-# ---------------------------------------------------------------------------
-RUN set -eux; \
-    test -s /app/models/yunet.onnx; \
-    test -s /app/insightface/models/buffalo_l/det_10g.onnx; \
-    test -s /app/insightface/models/buffalo_l/w600k_r50.onnx; \
-    echo "Required model files:"; \
-    find /app/models /app/insightface/models -type f -print | sort
+RUN test -s /app/models/yunet.onnx && \
+    test -s /app/insightface/models/buffalo_l/det_10g.onnx && \
+    test -s /app/insightface/models/buffalo_l/w600k_r50.onnx
 
-# ---------------------------------------------------------------------------
-# Runtime
-# ---------------------------------------------------------------------------
 EXPOSE 8000
 
 HEALTHCHECK \
